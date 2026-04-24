@@ -209,6 +209,9 @@ pub enum PoolError {
 
     #[msg("Invalid compounding parameters")]
     InvalidCompoundingParameters,
+
+    #[msg("Sells are disabled on this curve")]
+    SellDisabled,
 }
 
 impl From<ProtozolZapError> for PoolError {

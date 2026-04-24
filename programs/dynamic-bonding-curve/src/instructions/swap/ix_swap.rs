@@ -139,6 +139,10 @@ pub fn handle_swap_wrapper<'c: 'info, 'info>(
     let swap_mode = SwapMode::try_from(swap_mode).map_err(|_| PoolError::TypeCastFailed)?;
 
     let trade_direction = ctx.accounts.get_trade_direction();
+    require!(
+        trade_direction == TradeDirection::QuoteToBase,
+        PoolError::SellDisabled
+    );
     let (
         token_in_mint,
         token_out_mint,
