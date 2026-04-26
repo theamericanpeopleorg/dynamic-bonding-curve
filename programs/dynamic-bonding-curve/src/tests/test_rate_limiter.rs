@@ -60,13 +60,6 @@ fn test_validate_rate_limiter() {
     // validate cliff fee numerator
     {
         let rate_limiter = FeeRateLimiter {
-            cliff_fee_numerator: MIN_FEE_NUMERATOR - 1,
-            reference_amount: 1_000_000_000, // 1SOL
-            max_limiter_duration: 60,        // 60 seconds
-            fee_increment_bps: 10,           // 10 bps
-        };
-        assert!(rate_limiter.validate(0, ActivationType::Slot).is_err());
-        let rate_limiter = FeeRateLimiter {
             cliff_fee_numerator: MAX_FEE_NUMERATOR + 1,
             reference_amount: 1_000_000_000, // 1SOL
             max_limiter_duration: 60,        // 60 seconds
@@ -392,7 +385,11 @@ proptest! {
     fn test_base_fee_numerator_from_excluded_fee_amount_2(
         base_fee_bps in MIN_FEE_BPS..=MAX_FEE_BPS,
         reference_amount in 1_000u64..=10_000_000_000u64,
-        fee_increment_bps in MIN_FEE_BPS..=MAX_FEE_BPS,
+        // Must start at 1, not MIN_FEE_BPS: an active rate limiter requires
+        // fee_increment_bps != 0 (see is_non_zero_rate_limiter), and
+        // get_max_index divides by fee_increment_numerator. Since MIN_FEE_BPS
+        // is now 0, we enforce the non-zero invariant explicitly here.
+        fee_increment_bps in 1u64..=MAX_FEE_BPS,
         excluded_fee_amount in 0..=u64::MAX/100,
     ){
         let  fee_increment_bps = fee_increment_bps.try_into().unwrap();

@@ -1,0 +1,207 @@
+
+action "dynamic_bonding_curve_evt_claim_creator_trading_fee" "svm::deploy_subgraph" {
+    program_id = action.deploy_dynamic_bonding_curve.program_id
+    program_idl = action.deploy_dynamic_bonding_curve.program_idl
+    block_height = 0 // action.deploy_dynamic_bonding_curve.block_height
+    event {
+        name = "EvtClaimCreatorTradingFee"
+    }
+}
+
+action "dynamic_bonding_curve_evt_claim_pool_creation_fee" "svm::deploy_subgraph" {
+    program_id = action.deploy_dynamic_bonding_curve.program_id
+    program_idl = action.deploy_dynamic_bonding_curve.program_idl
+    block_height = 0 // action.deploy_dynamic_bonding_curve.block_height
+    event {
+        name = "EvtClaimPoolCreationFee"
+    }
+}
+
+action "dynamic_bonding_curve_evt_claim_protocol_fee" "svm::deploy_subgraph" {
+    program_id = action.deploy_dynamic_bonding_curve.program_id
+    program_idl = action.deploy_dynamic_bonding_curve.program_idl
+    block_height = 0 // action.deploy_dynamic_bonding_curve.block_height
+    event {
+        name = "EvtClaimProtocolFee"
+    }
+}
+
+action "dynamic_bonding_curve_evt_claim_protocol_liquidity_migration_fee" "svm::deploy_subgraph" {
+    program_id = action.deploy_dynamic_bonding_curve.program_id
+    program_idl = action.deploy_dynamic_bonding_curve.program_idl
+    block_height = 0 // action.deploy_dynamic_bonding_curve.block_height
+    event {
+        name = "EvtClaimProtocolLiquidityMigrationFee"
+    }
+}
+
+action "dynamic_bonding_curve_evt_claim_trading_fee" "svm::deploy_subgraph" {
+    program_id = action.deploy_dynamic_bonding_curve.program_id
+    program_idl = action.deploy_dynamic_bonding_curve.program_idl
+    block_height = 0 // action.deploy_dynamic_bonding_curve.block_height
+    event {
+        name = "EvtClaimTradingFee"
+    }
+}
+
+action "dynamic_bonding_curve_evt_close_claim_fee_operator" "svm::deploy_subgraph" {
+    program_id = action.deploy_dynamic_bonding_curve.program_id
+    program_idl = action.deploy_dynamic_bonding_curve.program_idl
+    block_height = 0 // action.deploy_dynamic_bonding_curve.block_height
+    event {
+        name = "EvtCloseClaimFeeOperator"
+    }
+}
+
+action "dynamic_bonding_curve_evt_create_claim_fee_operator" "svm::deploy_subgraph" {
+    program_id = action.deploy_dynamic_bonding_curve.program_id
+    program_idl = action.deploy_dynamic_bonding_curve.program_idl
+    block_height = 0 // action.deploy_dynamic_bonding_curve.block_height
+    event {
+        name = "EvtCreateClaimFeeOperator"
+    }
+}
+
+action "dynamic_bonding_curve_evt_create_config" "svm::deploy_subgraph" {
+    program_id = action.deploy_dynamic_bonding_curve.program_id
+    program_idl = action.deploy_dynamic_bonding_curve.program_idl
+    block_height = 0 // action.deploy_dynamic_bonding_curve.block_height
+    event {
+        name = "EvtCreateConfig"
+    }
+}
+
+action "dynamic_bonding_curve_evt_create_config_v_2" "svm::deploy_subgraph" {
+    program_id = action.deploy_dynamic_bonding_curve.program_id
+    program_idl = action.deploy_dynamic_bonding_curve.program_idl
+    block_height = 0 // action.deploy_dynamic_bonding_curve.block_height
+    event {
+        name = "EvtCreateConfigV2"
+    }
+}
+
+action "dynamic_bonding_curve_evt_create_meteora_migration_metadata" "svm::deploy_subgraph" {
+    program_id = action.deploy_dynamic_bonding_curve.program_id
+    program_idl = action.deploy_dynamic_bonding_curve.program_idl
+    block_height = 0 // action.deploy_dynamic_bonding_curve.block_height
+    event {
+        name = "EvtCreateMeteoraMigrationMetadata"
+    }
+}
+
+action "dynamic_bonding_curve_evt_creator_withdraw_surplus" "svm::deploy_subgraph" {
+    program_id = action.deploy_dynamic_bonding_curve.program_id
+    program_idl = action.deploy_dynamic_bonding_curve.program_idl
+    block_height = 0 // action.deploy_dynamic_bonding_curve.block_height
+    event {
+        name = "EvtCreatorWithdrawSurplus"
+    }
+}
+
+action "dynamic_bonding_curve_evt_curve_complete" "svm::deploy_subgraph" {
+    program_id = action.deploy_dynamic_bonding_curve.program_id
+    program_idl = action.deploy_dynamic_bonding_curve.program_idl
+    block_height = 0 // action.deploy_dynamic_bonding_curve.block_height
+    event {
+        name = "EvtCurveComplete"
+    }
+}
+
+action "dynamic_bonding_curve_evt_initialize_pool" "svm::deploy_subgraph" {
+    program_id = action.deploy_dynamic_bonding_curve.program_id
+    program_idl = action.deploy_dynamic_bonding_curve.program_idl
+    block_height = 0 // action.deploy_dynamic_bonding_curve.block_height
+    event {
+        name = "EvtInitializePool"
+    }
+}
+
+action "dynamic_bonding_curve_evt_partner_claim_pool_creation_fee" "svm::deploy_subgraph" {
+    program_id = action.deploy_dynamic_bonding_curve.program_id
+    program_idl = action.deploy_dynamic_bonding_curve.program_idl
+    block_height = 0 // action.deploy_dynamic_bonding_curve.block_height
+    event {
+        name = "EvtPartnerClaimPoolCreationFee"
+    }
+}
+
+action "dynamic_bonding_curve_evt_partner_metadata" "svm::deploy_subgraph" {
+    program_id = action.deploy_dynamic_bonding_curve.program_id
+    program_idl = action.deploy_dynamic_bonding_curve.program_idl
+    block_height = 0 // action.deploy_dynamic_bonding_curve.block_height
+    event {
+        name = "EvtPartnerMetadata"
+    }
+}
+
+action "dynamic_bonding_curve_evt_partner_withdraw_migration_fee" "svm::deploy_subgraph" {
+    program_id = action.deploy_dynamic_bonding_curve.program_id
+    program_idl = action.deploy_dynamic_bonding_curve.program_idl
+    block_height = 0 // action.deploy_dynamic_bonding_curve.block_height
+    event {
+        name = "EvtPartnerWithdrawMigrationFee"
+    }
+}
+
+action "dynamic_bonding_curve_evt_partner_withdraw_surplus" "svm::deploy_subgraph" {
+    program_id = action.deploy_dynamic_bonding_curve.program_id
+    program_idl = action.deploy_dynamic_bonding_curve.program_idl
+    block_height = 0 // action.deploy_dynamic_bonding_curve.block_height
+    event {
+        name = "EvtPartnerWithdrawSurplus"
+    }
+}
+
+action "dynamic_bonding_curve_evt_swap" "svm::deploy_subgraph" {
+    program_id = action.deploy_dynamic_bonding_curve.program_id
+    program_idl = action.deploy_dynamic_bonding_curve.program_idl
+    block_height = 0 // action.deploy_dynamic_bonding_curve.block_height
+    event {
+        name = "EvtSwap"
+    }
+}
+
+action "dynamic_bonding_curve_evt_swap_2" "svm::deploy_subgraph" {
+    program_id = action.deploy_dynamic_bonding_curve.program_id
+    program_idl = action.deploy_dynamic_bonding_curve.program_idl
+    block_height = 0 // action.deploy_dynamic_bonding_curve.block_height
+    event {
+        name = "EvtSwap2"
+    }
+}
+
+action "dynamic_bonding_curve_evt_update_pool_creator" "svm::deploy_subgraph" {
+    program_id = action.deploy_dynamic_bonding_curve.program_id
+    program_idl = action.deploy_dynamic_bonding_curve.program_idl
+    block_height = 0 // action.deploy_dynamic_bonding_curve.block_height
+    event {
+        name = "EvtUpdatePoolCreator"
+    }
+}
+
+action "dynamic_bonding_curve_evt_virtual_pool_metadata" "svm::deploy_subgraph" {
+    program_id = action.deploy_dynamic_bonding_curve.program_id
+    program_idl = action.deploy_dynamic_bonding_curve.program_idl
+    block_height = 0 // action.deploy_dynamic_bonding_curve.block_height
+    event {
+        name = "EvtVirtualPoolMetadata"
+    }
+}
+
+action "dynamic_bonding_curve_evt_withdraw_leftover" "svm::deploy_subgraph" {
+    program_id = action.deploy_dynamic_bonding_curve.program_id
+    program_idl = action.deploy_dynamic_bonding_curve.program_idl
+    block_height = 0 // action.deploy_dynamic_bonding_curve.block_height
+    event {
+        name = "EvtWithdrawLeftover"
+    }
+}
+
+action "dynamic_bonding_curve_evt_withdraw_migration_fee" "svm::deploy_subgraph" {
+    program_id = action.deploy_dynamic_bonding_curve.program_id
+    program_idl = action.deploy_dynamic_bonding_curve.program_idl
+    block_height = 0 // action.deploy_dynamic_bonding_curve.block_height
+    event {
+        name = "EvtWithdrawMigrationFee"
+    }
+}

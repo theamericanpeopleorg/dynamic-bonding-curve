@@ -10,9 +10,7 @@ import {
 } from "./instructions";
 import {
   createVirtualCurveProgram,
-  expectThrowsAsync,
   generateAndFund,
-  getDbcProgramErrorCodeHexString,
   MAX_SQRT_PRICE,
   MIN_SQRT_PRICE,
   startSvm,
@@ -128,9 +126,9 @@ describe("Create config", () => {
     await createConfig(svm, program, params);
   });
 
-  it("Fail to create config less than min base fee (25 bps)", async () => {
+  it("Create config with zero base fee", async () => {
     const baseFee: BaseFee = {
-      cliffFeeNumerator: new BN(2_499_999),
+      cliffFeeNumerator: new BN(0),
       firstFactor: 0,
       secondFactor: new BN(0),
       thirdFactor: new BN(0),
@@ -146,9 +144,6 @@ describe("Create config", () => {
       instructionParams,
     };
 
-    const errorCode = getDbcProgramErrorCodeHexString("ExceedMaxFeeBps");
-    await expectThrowsAsync(async () => {
-      await createConfig(svm, program, params);
-    }, errorCode);
+    await createConfig(svm, program, params);
   });
 });
