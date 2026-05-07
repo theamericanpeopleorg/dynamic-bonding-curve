@@ -7,9 +7,14 @@ import { AnchorProvider, Program } from "@coral-xyz/anchor";
 import {
   DYNAMIC_BONDING_CURVE_PROGRAM_ID,
   DynamicBondingCurveIdl,
+  getTokenDecimals,
   TokenType,
 } from "@meteora-ag/dynamic-bonding-curve-sdk";
-import { TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID } from "@solana/spl-token";
+import {
+  NATIVE_MINT,
+  TOKEN_2022_PROGRAM_ID,
+  TOKEN_PROGRAM_ID,
+} from "@solana/spl-token";
 import {
   Commitment,
   Connection,
@@ -21,6 +26,12 @@ import {
 
 export const DEFAULT_RPC_URL = "http://127.0.0.1:8899";
 export const DEFAULT_COMMITMENT: Commitment = "confirmed";
+export const DEFAULT_STATUS_INTERVAL_MS = 5_000;
+export const DEFAULT_RPC_TIMEOUT_MS = 15_000;
+export const DEFAULT_SEND_TIMEOUT_MS = 20_000;
+export const DEFAULT_CONFIRM_TIMEOUT_MS = 60_000;
+export const DEFAULT_RPC_RETRY_ATTEMPTS = 3;
+export const DEFAULT_RPC_RETRY_DELAY_MS = 1_000;
 export const DEFAULT_KEYPAIR_PATH = path.join(
   homedir(),
   ".config/solana/id.json"
@@ -39,7 +50,18 @@ export type KeeperOptions = {
   rpcUrl?: string;
   dbcProgramId?: PublicKey;
   keypairPath?: string;
+  statusIntervalMs?: number;
 };
+
+export type RpcRetryInfo = {
+  operation: string;
+  attempt: number;
+  maxAttempts: number;
+  nextDelayMs: number;
+  message: string;
+};
+
+export type RpcRetryLogger = (info: RpcRetryInfo) => void;
 
 export type KeeperResult = {
   action: "migrated" | "already_migrated" | "externally_migrated";
@@ -116,6 +138,65 @@ export function getTokenProgramForFlag(tokenFlag: number): PublicKey {
     : TOKEN_PROGRAM_ID;
 }
 
+export async function getQuoteDecimals(
+  connection: Connection,
+  quoteMint: PublicKey
+): Promise<number> {
+  if (quoteMint.equals(NATIVE_MINT)) {
+    return 9;
+  }
+
+  return getTokenDecimals(connection, quoteMint);
+}
+
+export function toBigInt(value: unknown): bigint {
+  return BigInt(String(value));
+}
+
+export function rawAmountToUi(rawAmount: bigint, decimals: number): string {
+  const zero = BigInt(0);
+  const sign = rawAmount < zero ? "-" : "";
+  const absolute = rawAmount < zero ? -rawAmount : rawAmount;
+  const divisor = pow10(decimals);
+  const whole = absolute / divisor;
+  const fraction = absolute % divisor;
+
+  if (fraction === zero) {
+    return `${sign}${whole.toString()}`;
+  }
+
+  return `${sign}${whole.toString()}.${fraction
+    .toString()
+    .padStart(decimals, "0")
+    .replace(/0+$/, "")}`;
+}
+
+export function percent(numerator: bigint, denominator: bigint): string | null {
+  if (denominator === BigInt(0)) {
+    return null;
+  }
+
+  const percentScale = BigInt(100_000_000);
+  const fractionScale = BigInt(1_000_000);
+  const scaled = (numerator * percentScale) / denominator;
+  const whole = scaled / fractionScale;
+  const fraction = (scaled % fractionScale)
+    .toString()
+    .padStart(6, "0")
+    .replace(/0+$/, "");
+
+  return fraction ? `${whole.toString()}.${fraction}` : whole.toString();
+}
+
+function pow10(decimals: number): bigint {
+  let value = BigInt(1);
+  for (let i = 0; i < decimals; i++) {
+    value *= BigInt(10);
+  }
+
+  return value;
+}
+
 export function migrationProgressLabel(value: number): string {
   return (
     [
@@ -139,43 +220,159 @@ export function publicKeyResultToBase58<T extends Record<string, unknown>>(
 }
 
 export function logEvent(event: Record<string, unknown>) {
-  console.log(JSON.stringify(event));
+  console.log(
+    JSON.stringify({
+      ...event,
+      timestamp: new Date().toISOString(),
+    })
+  );
+}
+
+export async function retryRpc<T>(params: {
+  operation: string;
+  fn: () => Promise<T>;
+  attempts?: number;
+  timeoutMs?: number;
+  retryDelayMs?: number;
+  onRetry?: RpcRetryLogger;
+}): Promise<T> {
+  const attempts = params.attempts ?? DEFAULT_RPC_RETRY_ATTEMPTS;
+  const timeoutMs = params.timeoutMs ?? DEFAULT_RPC_TIMEOUT_MS;
+  const retryDelayMs = params.retryDelayMs ?? DEFAULT_RPC_RETRY_DELAY_MS;
+
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try {
+      return await withTimeout(
+        Promise.resolve().then(params.fn),
+        timeoutMs,
+        params.operation
+      );
+    } catch (error) {
+      if (!isRetryableRpcError(error) || attempt === attempts) {
+        throw error;
+      }
+
+      params.onRetry?.({
+        operation: params.operation,
+        attempt,
+        maxAttempts: attempts,
+        nextDelayMs: retryDelayMs,
+        message: errorMessage(error),
+      });
+      await sleep(retryDelayMs);
+    }
+  }
+
+  throw new Error(`${params.operation} failed without returning a result`);
+}
+
+export function isRetryableRpcError(error: unknown): boolean {
+  if (error instanceof RpcTimeoutError) {
+    return true;
+  }
+
+  const message = errorMessage(error);
+  if (isLikelyOnChainError(message)) {
+    return false;
+  }
+
+  return /fetch failed|failed to fetch|network|econnreset|etimedout|esockettimedout|econnrefused|eai_again|enotfound|socket hang up|timed out|timeout|too many requests|rate limit|429|500|502|503|504|gateway|headers timeout|body timeout|und_err|connection closed|blockhash not found|block height exceeded|not confirmed/i.test(
+    message
+  );
+}
+
+export function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 export async function signSendAndConfirm(
   connection: Connection,
   transaction: Transaction,
-  signers: Signer[]
+  signers: Signer[],
+  onRetry?: RpcRetryLogger
 ): Promise<string> {
   const uniqueSigners = Array.from(
     new Map(
       signers.map((signer) => [signer.publicKey.toBase58(), signer])
     ).values()
   );
-  const latestBlockhash = await connection.getLatestBlockhash(
-    DEFAULT_COMMITMENT
-  );
+  const latestBlockhash = await retryRpc({
+    operation: "getLatestBlockhash",
+    fn: () => connection.getLatestBlockhash(DEFAULT_COMMITMENT),
+    onRetry,
+  });
   transaction.feePayer = uniqueSigners[0].publicKey;
   transaction.recentBlockhash = latestBlockhash.blockhash;
   transaction.sign(...uniqueSigners);
+  const rawTransaction = transaction.serialize();
 
-  const signature = await connection.sendRawTransaction(
-    transaction.serialize(),
-    {
-      skipPreflight: false,
-      preflightCommitment: DEFAULT_COMMITMENT,
-    }
-  );
+  const signature = await retryRpc({
+    operation: "sendRawTransaction",
+    timeoutMs: DEFAULT_SEND_TIMEOUT_MS,
+    fn: () =>
+      connection.sendRawTransaction(rawTransaction, {
+        skipPreflight: false,
+        preflightCommitment: DEFAULT_COMMITMENT,
+      }),
+    onRetry,
+  });
 
-  await connection.confirmTransaction(
-    {
-      signature,
-      ...latestBlockhash,
-    },
-    DEFAULT_COMMITMENT
-  );
+  const confirmation = await retryRpc({
+    operation: "confirmTransaction",
+    timeoutMs: DEFAULT_CONFIRM_TIMEOUT_MS,
+    fn: () =>
+      connection.confirmTransaction(
+        {
+          signature,
+          ...latestBlockhash,
+        },
+        DEFAULT_COMMITMENT
+      ),
+    onRetry,
+  });
+  if (confirmation.value.err) {
+    throw new Error(
+      `Transaction failed: ${JSON.stringify(confirmation.value.err)}`
+    );
+  }
 
   return signature;
+}
+
+function withTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  operation: string
+): Promise<T> {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeout = setTimeout(() => {
+      reject(new RpcTimeoutError(operation, timeoutMs));
+    }, timeoutMs);
+  });
+
+  return Promise.race([promise, timeoutPromise]).finally(() => {
+    if (timeout) {
+      clearTimeout(timeout);
+    }
+  });
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+class RpcTimeoutError extends Error {
+  constructor(operation: string, timeoutMs: number) {
+    super(`${operation} timed out after ${timeoutMs}ms`);
+    this.name = "RpcTimeoutError";
+  }
+}
+
+function isLikelyOnChainError(message: string): boolean {
+  return /custom program error|instructionerror|instruction error|transaction simulation failed|anchorerror|insufficient funds|signature verification failed|invalid account|owner does not match|account not found/i.test(
+    message
+  );
 }
 
 function isPublicKeyLike(value: unknown): value is { toBase58(): string } {

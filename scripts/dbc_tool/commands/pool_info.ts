@@ -79,6 +79,11 @@ export async function poolInfo(
   const quoteDecimals = await getQuoteDecimals(connection, quoteMint);
   const baseReserve = toBN(poolState.baseReserve);
   const quoteReserve = toBN(poolState.quoteReserve);
+  const migrationQuoteThreshold = toBN(config.migrationQuoteThreshold);
+  const migrationBaseThreshold = toBN(config.migrationBaseThreshold);
+  const quoteRemainingToMigration = migrationQuoteThreshold.gt(quoteReserve)
+    ? migrationQuoteThreshold.sub(quoteReserve)
+    : toBN(0);
   const initialBaseSupply = getInitialBaseSupply(config);
   const tokensSold = initialBaseSupply.sub(
     bnMin(baseReserve, initialBaseSupply)
@@ -133,6 +138,34 @@ export async function poolInfo(
         baseDecimals
       ),
     },
+    migration: {
+      migrationProgress: toNumber(poolState.migrationProgress),
+      migrationProgressLabel: migrationProgressLabel(
+        toNumber(poolState.migrationProgress)
+      ),
+      isMigrated: toNumber(poolState.isMigrated) === 1,
+      isCurveComplete: quoteReserve.gte(migrationQuoteThreshold),
+      finishCurveTimestamp: toNumber(poolState.finishCurveTimestamp),
+      saleCompletionPercent: percent(
+        bnMin(quoteReserve, migrationQuoteThreshold),
+        migrationQuoteThreshold
+      ),
+      quoteReserveRaw: quoteReserve.toString(),
+      quoteReserveUi: rawAmountToUi(quoteReserve, quoteDecimals),
+      migrationQuoteThresholdRaw: migrationQuoteThreshold.toString(),
+      migrationQuoteThresholdUi: rawAmountToUi(
+        migrationQuoteThreshold,
+        quoteDecimals
+      ),
+      quoteRemainingRaw: quoteRemainingToMigration.toString(),
+      quoteRemainingUi: rawAmountToUi(quoteRemainingToMigration, quoteDecimals),
+      migrationBaseThresholdRaw: migrationBaseThreshold.toString(),
+      migrationBaseThresholdUi: rawAmountToUi(
+        migrationBaseThreshold,
+        baseDecimals
+      ),
+      migrationSqrtPrice: toBN(config.migrationSqrtPrice).toString(),
+    },
     fees: {
       protocolBaseFeeRaw: toBN(poolState.protocolBaseFee).toString(),
       protocolQuoteFeeRaw: toBN(poolState.protocolQuoteFee).toString(),
@@ -147,4 +180,15 @@ export async function poolInfo(
       ),
     },
   };
+}
+
+function migrationProgressLabel(value: number): string {
+  return (
+    [
+      "pre_bonding_curve",
+      "post_bonding_curve",
+      "locked_vesting",
+      "created_pool",
+    ][value] ?? `unknown_${value}`
+  );
 }
