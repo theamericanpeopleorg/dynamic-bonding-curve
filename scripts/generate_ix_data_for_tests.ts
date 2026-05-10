@@ -3,11 +3,7 @@ import { AnchorProvider, BN, Program, Wallet } from "@coral-xyz/anchor";
 import { clusterApiUrl, Connection, Keypair, PublicKey } from "@solana/web3.js";
 
 import { MAX_SQRT_PRICE, MIN_SQRT_PRICE, U64_MAX } from "../tests/utils";
-import {
-  InitializePoolParameters,
-  ConfigParameters,
-  SwapMode,
-} from "../tests/instructions";
+import { InitializePoolParameters, SwapMode } from "../tests/instructions";
 
 import { DynamicBondingCurve as VirtualCurve } from "../target/types/dynamic_bonding_curve";
 
@@ -139,19 +135,19 @@ async function createConfigToken2022(
 
   const baseFee = isOldVersion
     ? {
-      cliffFeeNumerator: new BN(2_500_000),
-      numberOfPeriod: 0,
-      reductionFactor: new BN(0),
-      periodFrequency: new BN(0),
-      feeSchedulerMode: 0,
-    }
+        cliffFeeNumerator: new BN(2_500_000),
+        numberOfPeriod: 0,
+        reductionFactor: new BN(0),
+        periodFrequency: new BN(0),
+        feeSchedulerMode: 0,
+      }
     : {
-      cliffFeeNumerator: new BN(2_500_000),
-      firstFactor: 0, // first factor | number_of_period
-      thirdFactor: new BN(0), // third factor | reduction_factor
-      secondFactor: new BN(0), // second factor | period_frequency
-      baseFeeMode: 0,
-    };
+        cliffFeeNumerator: new BN(2_500_000),
+        firstFactor: 0, // first factor | number_of_period
+        thirdFactor: new BN(0), // third factor | reduction_factor
+        secondFactor: new BN(0), // second factor | period_frequency
+        baseFeeMode: 0,
+      };
 
   const instructionParams = {
     poolFees: {
@@ -224,19 +220,19 @@ async function createConfigSplTokenForSwapDamm(
 
   const baseFee = isOldVersion
     ? {
-      cliffFeeNumerator: new BN(2_500_000),
-      numberOfPeriod: 0,
-      reductionFactor: new BN(0),
-      periodFrequency: new BN(0),
-      feeSchedulerMode: 0,
-    }
+        cliffFeeNumerator: new BN(2_500_000),
+        numberOfPeriod: 0,
+        reductionFactor: new BN(0),
+        periodFrequency: new BN(0),
+        feeSchedulerMode: 0,
+      }
     : {
-      cliffFeeNumerator: new BN(2_500_000),
-      firstFactor: 0, // first factor | number_of_period
-      thirdFactor: new BN(0), // third factor | reduction_factor
-      secondFactor: new BN(0), // second factor | period_frequency
-      baseFeeMode: 0,
-    };
+        cliffFeeNumerator: new BN(2_500_000),
+        firstFactor: 0, // first factor | number_of_period
+        thirdFactor: new BN(0), // third factor | reduction_factor
+        secondFactor: new BN(0), // second factor | period_frequency
+        baseFeeMode: 0,
+      };
 
   const instructionParams = {
     poolFees: {
@@ -308,19 +304,19 @@ async function createConfigSplTokenForSwapDammv2(
 
   const baseFee = isOldVersion
     ? {
-      cliffFeeNumerator: new BN(2_500_000),
-      numberOfPeriod: 0,
-      reductionFactor: new BN(0),
-      periodFrequency: new BN(0),
-      feeSchedulerMode: 0,
-    }
+        cliffFeeNumerator: new BN(2_500_000),
+        numberOfPeriod: 0,
+        reductionFactor: new BN(0),
+        periodFrequency: new BN(0),
+        feeSchedulerMode: 0,
+      }
     : {
-      cliffFeeNumerator: new BN(2_500_000),
-      firstFactor: 0, // first factor | number_of_period
-      thirdFactor: new BN(0), // third factor | reduction_factor
-      secondFactor: new BN(0), // second factor | period_frequency
-      baseFeeMode: 0,
-    };
+        cliffFeeNumerator: new BN(2_500_000),
+        firstFactor: 0, // first factor | number_of_period
+        thirdFactor: new BN(0), // third factor | reduction_factor
+        secondFactor: new BN(0), // second factor | period_frequency
+        baseFeeMode: 0,
+      };
 
   const instructionParams = {
     poolFees: {
@@ -390,19 +386,19 @@ async function createConfigSplTokenWithBaseFeeParameters(
 
   const baseFee = isOldVersion
     ? {
-      cliffFeeNumerator: new BN(10_000_000),
-      numberOfPeriod: 10,
-      reductionFactor: new BN(14),
-      periodFrequency: new BN(3),
-      feeSchedulerMode: 0,
-    }
+        cliffFeeNumerator: new BN(10_000_000),
+        numberOfPeriod: 10,
+        reductionFactor: new BN(14),
+        periodFrequency: new BN(3),
+        feeSchedulerMode: 0,
+      }
     : {
-      cliffFeeNumerator: new BN(10_000_000),
-      firstFactor: 10, // first factor | number_of_period
-      thirdFactor: new BN(14), // third factor | reduction_factor
-      secondFactor: new BN(3), // second factor | period_frequency
-      baseFeeMode: 0,
-    };
+        cliffFeeNumerator: new BN(10_000_000),
+        firstFactor: 10, // first factor | number_of_period
+        thirdFactor: new BN(14), // third factor | reduction_factor
+        secondFactor: new BN(3), // second factor | period_frequency
+        baseFeeMode: 0,
+      };
 
   const instructionParams = {
     poolFees: {
