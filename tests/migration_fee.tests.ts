@@ -225,8 +225,6 @@ async function fullFlow(
   };
   await swap(svm, program, params);
 
-  virtualPoolState = getVirtualPool(svm, program, virtualPool);
-
   // migrate
   const poolAuthority = derivePoolAuthority();
   let dammConfig = await createDammConfig(svm, admin, poolAuthority);
