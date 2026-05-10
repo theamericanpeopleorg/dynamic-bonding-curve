@@ -5,14 +5,8 @@ import {
   loadKeypair,
   MAINNET_USDC_MINT,
   simulateAndSend,
-  type BuyOptions,
-  type BuyResult,
   type CreateConfigOptions,
   type CreateConfigResult,
-  type CreatePoolOptions,
-  type CreatePoolResult,
-  type PoolInfoOptions,
-  type PoolInfoResult,
 } from "../shared";
 
 export async function createConfig(
