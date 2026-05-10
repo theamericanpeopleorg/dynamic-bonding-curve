@@ -1,25 +1,7 @@
-import { Program } from "@coral-xyz/anchor";
 import {
-  getCurrentPoint,
-  getFeeMode,
   getPriceFromSqrtPrice,
-  getSwapResultFromExactOutput,
-  getSwapResultFromPartialInput,
-  METAPLEX_PROGRAM_ID,
-  MigrationOption,
   TokenDecimal,
-  TokenType,
-  TradeDirection,
 } from "@meteora-ag/dynamic-bonding-curve-sdk";
-import {
-  createAssociatedTokenAccountIdempotentInstruction,
-  createCloseAccountInstruction,
-  createSyncNativeInstruction,
-  getAssociatedTokenAddressSync,
-  NATIVE_MINT,
-  TOKEN_2022_PROGRAM_ID,
-  TOKEN_PROGRAM_ID,
-} from "@solana/spl-token";
 import {
   ComputeBudgetProgram,
   Connection,
