@@ -116,8 +116,6 @@ describe("Config pool creation fee", () => {
       },
     });
 
-    let poolState = getVirtualPool(svm, program, pool);
-
     const beforeLamport = svm.getAccount(partner.publicKey).lamports;
 
     const errorCodeUnauthorized =
@@ -143,7 +141,7 @@ describe("Config pool creation fee", () => {
     const afterLamports = svm.getAccount(partner.publicKey).lamports;
 
     expect(afterLamports > beforeLamport).to.be.true;
-    poolState = getVirtualPool(svm, program, pool);
+    let poolState = getVirtualPool(svm, program, pool);
     expect(poolState.creationFeeBits & PARTNER_POOL_FEE_CLAIMED_MASK).not.equal(
       0
     );
@@ -216,8 +214,6 @@ describe("Config pool creation fee", () => {
       },
     });
 
-    let poolState = getVirtualPool(svm, program, pool);
-
     const beforeLamport = svm.getAccount(partner.publicKey).lamports;
 
     // partner claim pool creation fee
@@ -231,7 +227,7 @@ describe("Config pool creation fee", () => {
     const afterLamports = svm.getAccount(partner.publicKey).lamports;
 
     expect(afterLamports > beforeLamport).to.be.true;
-    poolState = getVirtualPool(svm, program, pool);
+    let poolState = getVirtualPool(svm, program, pool);
     expect(poolState.creationFeeBits & PARTNER_POOL_FEE_CLAIMED_MASK).not.equal(
       0
     );

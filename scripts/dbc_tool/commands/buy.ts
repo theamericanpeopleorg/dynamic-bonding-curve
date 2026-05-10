@@ -1,13 +1,8 @@
-import { Program } from "@coral-xyz/anchor";
 import {
   getCurrentPoint,
   getFeeMode,
-  getPriceFromSqrtPrice,
   getSwapResultFromExactOutput,
   getSwapResultFromPartialInput,
-  METAPLEX_PROGRAM_ID,
-  MigrationOption,
-  TokenDecimal,
   TokenType,
   TradeDirection,
 } from "@meteora-ag/dynamic-bonding-curve-sdk";
@@ -22,8 +17,6 @@ import {
 } from "@solana/spl-token";
 import {
   ComputeBudgetProgram,
-  Connection,
-  Keypair,
   PublicKey,
   SYSVAR_INSTRUCTIONS_PUBKEY,
   SystemProgram,
@@ -31,24 +24,14 @@ import {
 import BN from "bn.js";
 import {
   buildClient,
-  buildDefaultCurveConfig,
-  getInitialBaseSupply,
   getQuoteDecimals,
   getTokenProgramForFlag,
   loadKeypair,
-  MAINNET_USDC_MINT,
   amountToRaw,
-  bnMin,
-  deriveDbcPoolAddressForProgram,
   deriveDbcPoolAuthority,
-  deriveDbcTokenVaultAddress,
-  deriveMintMetadata,
-  percent,
-  rawAmountToUi,
   simulateAndSend,
   toBN,
   toNumber,
-  tokenTypeLabel,
   type BuyOptions,
   type BuyResult,
   type CreateConfigOptions,
