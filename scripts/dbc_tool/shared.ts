@@ -129,7 +129,7 @@ export function loadKeypair(keypairPath = process.env.KEYPAIR_PATH): Keypair {
   return Keypair.fromSecretKey(Uint8Array.from(bytes));
 }
 
-export function buildDefaultCurveConfig(): ConfigParameters {
+export function buildMschfCurveConfig(): ConfigParameters {
   const tokenBaseDecimal = TokenDecimal.SIX;
   const tokenQuoteDecimal = TokenDecimal.SIX;
   const soldBaseAmount = uiAmountToRaw(

@@ -1,7 +1,7 @@
 import { Keypair } from "@solana/web3.js";
 import {
   buildClient,
-  buildDefaultCurveConfig,
+  buildMschfCurveConfig,
   loadKeypair,
   MAINNET_USDC_MINT,
   simulateAndSend,
@@ -20,7 +20,7 @@ export async function createConfig(
   const quoteMint = options.quoteMint ?? MAINNET_USDC_MINT;
 
   const transaction = await program.methods
-    .createConfig(buildDefaultCurveConfig())
+    .createConfig(buildMschfCurveConfig())
     .accountsPartial({
       payer: payer.publicKey,
       config: config.publicKey,
