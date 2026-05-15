@@ -1093,7 +1093,7 @@ function renderHtml(options: Options): string {
         ["Sale complete", String(info.migration.saleComplete)],
         ["Completion mode", info.migration.completionMode],
         ["Deadline reached", String(info.migration.deadlineReached)],
-        ["Sale deadline timestamp", String(info.migration.saleDeadlineTimestamp)],
+        ["Deadline timestamp", String(info.migration.deadlineTimestamp)],
         ["Migrated", String(info.migration.isMigrated)],
         ["Quote threshold", info.migration.migrationQuoteThresholdUi],
         ["Base threshold", info.migration.migrationBaseThresholdUi],

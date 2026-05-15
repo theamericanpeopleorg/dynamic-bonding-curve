@@ -504,7 +504,7 @@ async function initializeVirtualPoolWithSplToken(
     name: "name",
     symbol: "symbol",
     uri: "uri",
-    saleDeadlineTimestamp: new BN(0),
+    deadlineTimestamp: new BN(0),
   };
 
   const ix = await program.methods
@@ -532,7 +532,7 @@ async function initializeVirtualPoolWithToken2022(
     name: "name",
     symbol: "symbol",
     uri: "uri",
-    saleDeadlineTimestamp: new BN(0),
+    deadlineTimestamp: new BN(0),
   };
 
   const ix = await program.methods

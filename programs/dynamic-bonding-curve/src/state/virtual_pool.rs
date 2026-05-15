@@ -157,7 +157,7 @@ pub struct VirtualPool {
     pub protocol_migration_base_fee_amount: u64,
     pub protocol_migration_quote_fee_amount: u64,
     /// Timestamp at which the sale can complete before the quote threshold is reached. 0 means disabled.
-    pub sale_deadline_timestamp: u64,
+    pub deadline_timestamp: u64,
     /// Padding for further use
     pub _padding_2: [u64; 2],
 }
@@ -217,7 +217,7 @@ impl VirtualPool {
         activation_point: u64,
         base_reserve: u64,
         protocol_liquidity_migration_fee_bps: u16,
-        sale_deadline_timestamp: u64,
+        deadline_timestamp: u64,
     ) {
         self.volatility_tracker = volatility_tracker;
         self.config = config;
@@ -230,7 +230,7 @@ impl VirtualPool {
         self.activation_point = activation_point;
         self.base_reserve = base_reserve;
         self.protocol_liquidity_migration_fee_bps = protocol_liquidity_migration_fee_bps;
-        self.sale_deadline_timestamp = sale_deadline_timestamp;
+        self.deadline_timestamp = deadline_timestamp;
     }
 
     pub fn get_swap_result_from_exact_output(
@@ -1084,13 +1084,12 @@ impl VirtualPool {
         self.quote_reserve >= migration_threshold
     }
 
-    pub fn is_sale_deadline_reached(&self, current_timestamp: u64) -> bool {
-        self.sale_deadline_timestamp != 0 && current_timestamp >= self.sale_deadline_timestamp
+    pub fn is_deadline_reached(&self, current_timestamp: u64) -> bool {
+        self.deadline_timestamp != 0 && current_timestamp >= self.deadline_timestamp
     }
 
     pub fn is_sale_complete(&self, migration_threshold: u64, current_timestamp: u64) -> bool {
-        self.is_curve_complete(migration_threshold)
-            || self.is_sale_deadline_reached(current_timestamp)
+        self.is_curve_complete(migration_threshold) || self.is_deadline_reached(current_timestamp)
     }
 
     pub fn update_after_create_pool(&mut self) {

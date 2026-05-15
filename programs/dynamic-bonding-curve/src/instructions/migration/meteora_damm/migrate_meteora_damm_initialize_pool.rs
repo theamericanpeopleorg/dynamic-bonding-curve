@@ -220,7 +220,7 @@ pub fn handle_migrate_meteora_damm<'info>(
     let mut virtual_pool = ctx.accounts.virtual_pool.load_mut()?;
     let migration_progress = virtual_pool.get_migration_progress()?;
     let locked_vesting_params = config.locked_vesting_config.to_locked_vesting_params();
-    let deadline_reached = virtual_pool.is_sale_deadline_reached(current_timestamp);
+    let deadline_reached = virtual_pool.is_deadline_reached(current_timestamp);
     let threshold_reached = virtual_pool.is_curve_complete(config.migration_quote_threshold);
     let can_migrate_after_deadline = migration_progress == MigrationProgress::PreBondingCurve
         && deadline_reached
@@ -239,7 +239,7 @@ pub fn handle_migrate_meteora_damm<'info>(
     );
 
     if virtual_pool.finish_curve_timestamp == 0 && can_migrate_after_deadline {
-        virtual_pool.finish_curve_timestamp = virtual_pool.sale_deadline_timestamp;
+        virtual_pool.finish_curve_timestamp = virtual_pool.deadline_timestamp;
     }
 
     let migration_option = MigrationOption::try_from(config.migration_option)

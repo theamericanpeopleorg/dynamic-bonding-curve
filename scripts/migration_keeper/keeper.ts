@@ -304,9 +304,7 @@ async function getSaleProgressLogFields(params: {
   }
 
   const quoteReserve = toBigInt(params.poolState.quoteReserve);
-  const saleDeadlineTimestamp = toBigInt(
-    params.poolState.saleDeadlineTimestamp ?? 0
-  );
+  const deadlineTimestamp = toBigInt(params.poolState.deadlineTimestamp ?? 0);
   const blockTime =
     params.slot === undefined
       ? null
@@ -321,8 +319,7 @@ async function getSaleProgressLogFields(params: {
   const thresholdReached =
     quoteReserve >= saleProgressConfig.migrationQuoteThreshold;
   const deadlineReached =
-    saleDeadlineTimestamp !== BigInt(0) &&
-    currentTimestamp >= saleDeadlineTimestamp;
+    deadlineTimestamp !== BigInt(0) && currentTimestamp >= deadlineTimestamp;
   const saleComplete = thresholdReached || deadlineReached;
   const completionMode = thresholdReached
     ? "threshold"
@@ -355,7 +352,7 @@ async function getSaleProgressLogFields(params: {
         saleProgressConfig.migrationQuoteThreshold,
         saleProgressConfig.quoteDecimals
       ),
-      saleDeadlineTimestampRaw: saleDeadlineTimestamp.toString(),
+      deadlineTimestampRaw: deadlineTimestamp.toString(),
       deadlineReached,
       saleComplete,
       completionMode,

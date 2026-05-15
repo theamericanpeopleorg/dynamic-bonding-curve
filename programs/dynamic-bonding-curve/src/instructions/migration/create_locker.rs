@@ -78,7 +78,7 @@ pub fn handle_create_locker(ctx: Context<CreateLockerCtx>) -> Result<()> {
     let migration_progress = virtual_pool.get_migration_progress()?;
     let can_create_locker_after_deadline = migration_progress == MigrationProgress::PreBondingCurve
         && locked_vesting_params.has_vesting()
-        && virtual_pool.is_sale_deadline_reached(current_timestamp);
+        && virtual_pool.is_deadline_reached(current_timestamp);
 
     require!(
         migration_progress == MigrationProgress::PostBondingCurve
@@ -87,7 +87,7 @@ pub fn handle_create_locker(ctx: Context<CreateLockerCtx>) -> Result<()> {
     );
 
     if virtual_pool.finish_curve_timestamp == 0 && can_create_locker_after_deadline {
-        virtual_pool.finish_curve_timestamp = virtual_pool.sale_deadline_timestamp;
+        virtual_pool.finish_curve_timestamp = virtual_pool.deadline_timestamp;
     }
 
     let vesting_params = locked_vesting_params

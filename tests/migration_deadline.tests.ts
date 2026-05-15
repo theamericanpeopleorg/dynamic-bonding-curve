@@ -55,7 +55,7 @@ describe("Migration deadline", () => {
   it("keeps below-threshold migration blocked before the deadline", async () => {
     const currentTimestamp = svm.getClock().unixTimestamp;
     const { config, virtualPool } = await createUnderfilledPool({
-      saleDeadlineTimestamp: new BN(
+      deadlineTimestamp: new BN(
         (currentTimestamp + BigInt(1_000_000)).toString()
       ),
     });
@@ -73,7 +73,7 @@ describe("Migration deadline", () => {
   it("keeps deadline completion disabled when the timestamp is zero", async () => {
     const currentTimestamp = svm.getClock().unixTimestamp;
     const { config, virtualPool } = await createUnderfilledPool({
-      saleDeadlineTimestamp: new BN(0),
+      deadlineTimestamp: new BN(0),
     });
     const dammConfig = await setupDammV2Migration(config, virtualPool);
 
@@ -90,11 +90,11 @@ describe("Migration deadline", () => {
 
   it("keeps target completion available before the deadline", async () => {
     const currentTimestamp = svm.getClock().unixTimestamp;
-    const saleDeadlineTimestamp = new BN(
+    const deadlineTimestamp = new BN(
       (currentTimestamp + BigInt(1_000_000)).toString()
     );
     const { config, virtualPool } = await createUnderfilledPool({
-      saleDeadlineTimestamp,
+      deadlineTimestamp,
     });
     const poolState = getVirtualPool(svm, program, virtualPool);
 
@@ -120,18 +120,18 @@ describe("Migration deadline", () => {
 
     const afterMigrationPool = getVirtualPool(svm, program, virtualPool);
     expect(afterMigrationPool.isMigrated).eq(1);
-    expect(
-      afterMigrationPool.finishCurveTimestamp.lt(saleDeadlineTimestamp)
-    ).eq(true);
+    expect(afterMigrationPool.finishCurveTimestamp.lt(deadlineTimestamp)).eq(
+      true
+    );
   });
 
   it("migrates below threshold after the deadline at the current curve price", async () => {
     const currentTimestamp = svm.getClock().unixTimestamp;
-    const saleDeadlineTimestamp = new BN(
+    const deadlineTimestamp = new BN(
       (currentTimestamp + BigInt(10)).toString()
     );
     const { config, virtualPool } = await createUnderfilledPool({
-      saleDeadlineTimestamp,
+      deadlineTimestamp,
     });
     const beforeMigrationPool = getVirtualPool(svm, program, virtualPool);
     const dammConfig = await setupDammV2Migration(config, virtualPool);
@@ -147,7 +147,7 @@ describe("Migration deadline", () => {
     const dammPoolState = getDammV2Pool(svm, dammPool);
     expect(afterMigrationPool.isMigrated).eq(1);
     expect(afterMigrationPool.finishCurveTimestamp.toString()).eq(
-      saleDeadlineTimestamp.toString()
+      deadlineTimestamp.toString()
     );
     expect(dammPoolState.sqrtPrice.toString()).eq(
       beforeMigrationPool.sqrtPrice.toString()
@@ -155,7 +155,7 @@ describe("Migration deadline", () => {
   });
 
   async function createUnderfilledPool(params: {
-    saleDeadlineTimestamp: BN;
+    deadlineTimestamp: BN;
   }): Promise<{ config: PublicKey; virtualPool: PublicKey }> {
     const config = await createDbcConfig(
       svm,
@@ -178,7 +178,7 @@ describe("Migration deadline", () => {
         name: "deadline token",
         symbol: "DEAD",
         uri: "abc.com",
-        saleDeadlineTimestamp: params.saleDeadlineTimestamp,
+        deadlineTimestamp: params.deadlineTimestamp,
       },
     });
     const poolState = getVirtualPool(svm, program, virtualPool);

@@ -142,7 +142,7 @@ pub fn handle_initialize_virtual_pool_with_token2022<'c: 'info, 'info>(
         name,
         symbol,
         uri,
-        sale_deadline_timestamp,
+        deadline_timestamp,
     } = params;
 
     // initialize metadata
@@ -270,7 +270,7 @@ pub fn handle_initialize_virtual_pool_with_token2022<'c: 'info, 'info>(
         activation_point,
         initial_base_supply,
         PROTOCOL_LIQUIDITY_MIGRATION_FEE_BPS,
-        sale_deadline_timestamp,
+        deadline_timestamp,
     );
 
     emit_cpi!(EvtInitializePool {
