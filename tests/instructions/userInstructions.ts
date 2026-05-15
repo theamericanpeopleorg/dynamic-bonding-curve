@@ -41,6 +41,7 @@ export type InitializePoolParameters = {
   name: string;
   symbol: string;
   uri: string;
+  migrationEndTimestamp?: BN;
 };
 export type CreatePoolSplTokenParams = {
   payer: Keypair;
@@ -62,6 +63,8 @@ export async function createInitializePoolWithSplTokenIx(
   baseMintKP: Keypair;
 }> {
   const { payer, quoteMint, poolCreator, config, instructionParams } = params;
+  const normalizedInstructionParams =
+    normalizeInitializePoolParameters(instructionParams);
   const configState = getConfig(svm, program, config);
 
   const poolAuthority = derivePoolAuthority();
@@ -73,9 +76,9 @@ export async function createInitializePoolWithSplTokenIx(
   const mintMetadata = deriveMetadataAccount(baseMintKP.publicKey);
 
   const tokenProgram =
-  configState.tokenType == 0 ? TOKEN_PROGRAM_ID : TOKEN_2022_PROGRAM_ID;
+    configState.tokenType == 0 ? TOKEN_PROGRAM_ID : TOKEN_2022_PROGRAM_ID;
   const instruction = await program.methods
-    .initializeVirtualPoolWithSplToken(instructionParams)
+    .initializeVirtualPoolWithSplToken(normalizedInstructionParams)
     .accountsPartial({
       config,
       baseMint: baseMintKP.publicKey,
@@ -131,6 +134,8 @@ export async function createPoolWithToken2022(
   params: CreatePoolToken2022Params
 ): Promise<PublicKey> {
   const { payer, quoteMint, config, instructionParams, poolCreator } = params;
+  const normalizedInstructionParams =
+    normalizeInitializePoolParameters(instructionParams);
 
   const poolAuthority = derivePoolAuthority();
   const baseMintKP = Keypair.generate();
@@ -138,7 +143,7 @@ export async function createPoolWithToken2022(
   const baseVault = deriveTokenVaultAddress(baseMintKP.publicKey, pool);
   const quoteVault = deriveTokenVaultAddress(quoteMint, pool);
   const transaction = await program.methods
-    .initializeVirtualPoolWithToken2022(instructionParams)
+    .initializeVirtualPoolWithToken2022(normalizedInstructionParams)
     .accountsPartial({
       config,
       baseMint: baseMintKP.publicKey,
@@ -163,6 +168,15 @@ export async function createPoolWithToken2022(
   sendTransactionMaybeThrow(svm, transaction, [payer, baseMintKP, poolCreator]);
 
   return pool;
+}
+
+function normalizeInitializePoolParameters(
+  instructionParams: InitializePoolParameters
+) {
+  return {
+    ...instructionParams,
+    migrationEndTimestamp: instructionParams.migrationEndTimestamp ?? new BN(0),
+  };
 }
 
 export enum SwapMode {

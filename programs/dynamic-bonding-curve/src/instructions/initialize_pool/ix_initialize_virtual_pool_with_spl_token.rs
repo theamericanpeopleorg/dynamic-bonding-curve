@@ -28,6 +28,7 @@ pub struct InitializePoolParameters {
     pub name: String,
     pub symbol: String,
     pub uri: String,
+    pub migration_end_timestamp: u64,
 }
 
 // To fix IDL generation: https://github.com/coral-xyz/anchor/issues/3209
@@ -161,7 +162,12 @@ pub fn handle_initialize_virtual_pool_with_spl_token<'c: 'info, 'info>(
         PoolError::InvalidTokenType
     );
 
-    let InitializePoolParameters { name, symbol, uri } = params;
+    let InitializePoolParameters {
+        name,
+        symbol,
+        uri,
+        migration_end_timestamp,
+    } = params;
 
     let token_authority = config.get_token_authority()?;
     // create token metadata
@@ -245,6 +251,7 @@ pub fn handle_initialize_virtual_pool_with_spl_token<'c: 'info, 'info>(
         activation_point,
         initial_base_supply,
         PROTOCOL_LIQUIDITY_MIGRATION_FEE_BPS,
+        migration_end_timestamp,
     );
 
     emit_cpi!(EvtInitializePool {

@@ -3,6 +3,7 @@ import {
   TokenDecimal,
 } from "@meteora-ag/dynamic-bonding-curve-sdk";
 import { PublicKey } from "@solana/web3.js";
+import BN from "bn.js";
 import {
   buildClient,
   getInitialBaseSupply,
@@ -39,6 +40,17 @@ export async function poolInfo(
   const quoteReserve = toBN(poolState.quoteReserve);
   const migrationQuoteThreshold = toBN(config.migrationQuoteThreshold);
   const migrationBaseThreshold = toBN(config.migrationBaseThreshold);
+  const migrationEndTimestamp = toBN(poolState.migrationEndTimestamp ?? 0);
+  const nowTimestamp = new BN(Math.floor(Date.now() / 1000));
+  const deadlineReached =
+    !migrationEndTimestamp.isZero() && nowTimestamp.gte(migrationEndTimestamp);
+  const thresholdReached = quoteReserve.gte(migrationQuoteThreshold);
+  const saleComplete = thresholdReached || deadlineReached;
+  const completionMode = thresholdReached
+    ? "threshold"
+    : deadlineReached
+    ? "deadline"
+    : "open";
   const quoteRemainingToMigration = migrationQuoteThreshold.gt(quoteReserve)
     ? migrationQuoteThreshold.sub(quoteReserve)
     : toBN(0);
@@ -102,7 +114,11 @@ export async function poolInfo(
         toNumber(poolState.migrationProgress)
       ),
       isMigrated: toNumber(poolState.isMigrated) === 1,
-      isCurveComplete: quoteReserve.gte(migrationQuoteThreshold),
+      isCurveComplete: thresholdReached,
+      saleComplete,
+      completionMode,
+      migrationEndTimestamp: migrationEndTimestamp.toNumber(),
+      deadlineReached,
       finishCurveTimestamp: toNumber(poolState.finishCurveTimestamp),
       saleCompletionPercent: percent(
         bnMin(quoteReserve, migrationQuoteThreshold),

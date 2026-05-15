@@ -1090,6 +1090,10 @@ function renderHtml(options: Options): string {
       renderKv(el.migrationDetails, [
         ["Progress", info.migration.migrationProgressLabel],
         ["Curve complete", String(info.migration.isCurveComplete)],
+        ["Sale complete", String(info.migration.saleComplete)],
+        ["Completion mode", info.migration.completionMode],
+        ["Deadline reached", String(info.migration.deadlineReached)],
+        ["Migration end timestamp", String(info.migration.migrationEndTimestamp)],
         ["Migrated", String(info.migration.isMigrated)],
         ["Quote threshold", info.migration.migrationQuoteThresholdUi],
         ["Base threshold", info.migration.migrationBaseThresholdUi],

@@ -138,7 +138,12 @@ pub fn handle_initialize_virtual_pool_with_token2022<'c: 'info, 'info>(
         PoolError::InvalidTokenType
     );
 
-    let InitializePoolParameters { name, symbol, uri } = params;
+    let InitializePoolParameters {
+        name,
+        symbol,
+        uri,
+        migration_end_timestamp,
+    } = params;
 
     // initialize metadata
     let cpi_accounts = TokenMetadataInitialize {
@@ -265,6 +270,7 @@ pub fn handle_initialize_virtual_pool_with_token2022<'c: 'info, 'info>(
         activation_point,
         initial_base_supply,
         PROTOCOL_LIQUIDITY_MIGRATION_FEE_BPS,
+        migration_end_timestamp,
     );
 
     emit_cpi!(EvtInitializePool {

@@ -2,6 +2,7 @@ import {
   METAPLEX_PROGRAM_ID,
   TokenType,
 } from "@meteora-ag/dynamic-bonding-curve-sdk";
+import BN from "bn.js";
 import { TOKEN_2022_PROGRAM_ID, TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import { Keypair, PublicKey } from "@solana/web3.js";
 import {
@@ -56,6 +57,7 @@ export async function createPool(
     name: options.name ?? "VoteToken",
     symbol: options.symbol ?? "VOTE",
     uri: options.uri ?? "https://example.com/localnet-dbc-token.json",
+    migrationEndTimestamp: new BN(String(options.migrationEndTimestamp ?? 0)),
   };
 
   const transaction =

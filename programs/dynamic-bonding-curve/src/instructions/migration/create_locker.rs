@@ -72,15 +72,23 @@ pub struct CreateLockerCtx<'info> {
 
 pub fn handle_create_locker(ctx: Context<CreateLockerCtx>) -> Result<()> {
     let mut virtual_pool = ctx.accounts.virtual_pool.load_mut()?;
+    let config = ctx.accounts.config.load()?;
+    let locked_vesting_params = config.locked_vesting_config.to_locked_vesting_params();
+    let current_timestamp = Clock::get()?.unix_timestamp as u64;
+    let migration_progress = virtual_pool.get_migration_progress()?;
+    let can_create_locker_after_deadline = migration_progress == MigrationProgress::PreBondingCurve
+        && locked_vesting_params.has_vesting()
+        && virtual_pool.is_migration_deadline_reached(current_timestamp);
 
     require!(
-        virtual_pool.get_migration_progress()? == MigrationProgress::PostBondingCurve,
+        migration_progress == MigrationProgress::PostBondingCurve
+            || can_create_locker_after_deadline,
         PoolError::NotPermitToDoThisAction
     );
 
-    let config = ctx.accounts.config.load()?;
-
-    let locked_vesting_params = config.locked_vesting_config.to_locked_vesting_params();
+    if virtual_pool.finish_curve_timestamp == 0 && can_create_locker_after_deadline {
+        virtual_pool.finish_curve_timestamp = virtual_pool.migration_end_timestamp;
+    }
 
     let vesting_params = locked_vesting_params
         .to_create_vesting_escrow_params(virtual_pool.finish_curve_timestamp)?;

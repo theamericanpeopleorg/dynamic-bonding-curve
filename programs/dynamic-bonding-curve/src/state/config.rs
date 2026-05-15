@@ -823,7 +823,17 @@ impl PoolConfig {
     }
 
     pub fn get_migration_fee_distribution(&self) -> Result<MigrationFeeDistribution> {
-        let MigrationAmount { fee, .. } = self.get_migration_quote_amount_for_config()?;
+        self.get_migration_fee_distribution_for_threshold(self.migration_quote_threshold)
+    }
+
+    pub fn get_migration_fee_distribution_for_threshold(
+        &self,
+        migration_quote_threshold: u64,
+    ) -> Result<MigrationFeeDistribution> {
+        let MigrationAmount { fee, .. } = PoolConfig::get_migration_quote_amount(
+            migration_quote_threshold,
+            self.migration_fee_percentage,
+        )?;
 
         let creator_migration_fee = safe_mul_div_cast_u64(
             fee,
