@@ -41,7 +41,7 @@ export type InitializePoolParameters = {
   name: string;
   symbol: string;
   uri: string;
-  migrationEndTimestamp?: BN;
+  saleDeadlineTimestamp?: BN;
 };
 export type CreatePoolSplTokenParams = {
   payer: Keypair;
@@ -175,7 +175,7 @@ function normalizeInitializePoolParameters(
 ) {
   return {
     ...instructionParams,
-    migrationEndTimestamp: instructionParams.migrationEndTimestamp ?? new BN(0),
+    saleDeadlineTimestamp: instructionParams.saleDeadlineTimestamp ?? new BN(0),
   };
 }
 

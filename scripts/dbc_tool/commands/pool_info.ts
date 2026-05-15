@@ -40,10 +40,10 @@ export async function poolInfo(
   const quoteReserve = toBN(poolState.quoteReserve);
   const migrationQuoteThreshold = toBN(config.migrationQuoteThreshold);
   const migrationBaseThreshold = toBN(config.migrationBaseThreshold);
-  const migrationEndTimestamp = toBN(poolState.migrationEndTimestamp ?? 0);
+  const saleDeadlineTimestamp = toBN(poolState.saleDeadlineTimestamp ?? 0);
   const nowTimestamp = new BN(Math.floor(Date.now() / 1000));
   const deadlineReached =
-    !migrationEndTimestamp.isZero() && nowTimestamp.gte(migrationEndTimestamp);
+    !saleDeadlineTimestamp.isZero() && nowTimestamp.gte(saleDeadlineTimestamp);
   const thresholdReached = quoteReserve.gte(migrationQuoteThreshold);
   const saleComplete = thresholdReached || deadlineReached;
   const completionMode = thresholdReached
@@ -117,7 +117,7 @@ export async function poolInfo(
       isCurveComplete: thresholdReached,
       saleComplete,
       completionMode,
-      migrationEndTimestamp: migrationEndTimestamp.toNumber(),
+      saleDeadlineTimestamp: saleDeadlineTimestamp.toNumber(),
       deadlineReached,
       finishCurveTimestamp: toNumber(poolState.finishCurveTimestamp),
       saleCompletionPercent: percent(

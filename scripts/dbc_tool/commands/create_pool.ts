@@ -57,7 +57,7 @@ export async function createPool(
     name: options.name ?? "VoteToken",
     symbol: options.symbol ?? "VOTE",
     uri: options.uri ?? "https://example.com/localnet-dbc-token.json",
-    migrationEndTimestamp: new BN(String(options.migrationEndTimestamp ?? 0)),
+    saleDeadlineTimestamp: new BN(String(options.saleDeadlineTimestamp ?? 0)),
   };
 
   const transaction =

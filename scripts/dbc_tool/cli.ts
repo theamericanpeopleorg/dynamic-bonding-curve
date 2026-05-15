@@ -11,7 +11,7 @@ import { buy, createConfig, createPool, poolInfo } from "./commands";
 export function usage() {
   console.log(`Usage:
   pnpm exec tsx scripts/dbc_tool.ts create-config [--rpc-url <URL>] [--quote-mint <MINT>]
-  pnpm exec tsx scripts/dbc_tool.ts create-pool <CONFIG_PUBKEY> [--rpc-url <URL>] [--base-mint-keypair <PATH>] [--migration-end-timestamp <UNIX_SECONDS>]
+  pnpm exec tsx scripts/dbc_tool.ts create-pool <CONFIG_PUBKEY> [--rpc-url <URL>] [--base-mint-keypair <PATH>] [--sale-deadline-timestamp <UNIX_SECONDS>]
   pnpm exec tsx scripts/dbc_tool.ts pool-info <POOL_PUBKEY> [--rpc-url <URL>]
   pnpm exec tsx scripts/dbc_tool.ts buy <POOL_PUBKEY> <BASE_AMOUNT> [--rpc-url <URL>] [--raw]
   pnpm exec tsx scripts/dbc_tool.ts buy <POOL_PUBKEY> <QUOTE_AMOUNT> --partial [--min-base-out <BASE_AMOUNT>] [--rpc-url <URL>] [--raw]
@@ -56,7 +56,7 @@ export async function runCli() {
       baseMint: args.baseMintKeypairPath
         ? loadKeypair(args.baseMintKeypairPath)
         : undefined,
-      migrationEndTimestamp: args.migrationEndTimestamp,
+      saleDeadlineTimestamp: args.saleDeadlineTimestamp,
     });
     console.log(JSON.stringify(publicKeyResultToBase58(result), null, 2));
     return;
@@ -103,7 +103,7 @@ export function parseCliArgs(argv: string[]) {
   let rpcUrl: string | undefined;
   let quoteMint: string | undefined;
   let baseMintKeypairPath: string | undefined;
-  let migrationEndTimestamp: string | undefined;
+  let saleDeadlineTimestamp: string | undefined;
   let minimumBaseAmountOut: string | undefined;
   let partialFill = false;
   let rawAmounts = false;
@@ -150,16 +150,16 @@ export function parseCliArgs(argv: string[]) {
       continue;
     }
 
-    if (arg === "--migration-end-timestamp") {
-      migrationEndTimestamp = argv[++i];
-      if (!migrationEndTimestamp) {
-        throw new Error("--migration-end-timestamp requires a unix timestamp");
+    if (arg === "--sale-deadline-timestamp") {
+      saleDeadlineTimestamp = argv[++i];
+      if (!saleDeadlineTimestamp) {
+        throw new Error("--sale-deadline-timestamp requires a unix timestamp");
       }
       continue;
     }
 
-    if (arg.startsWith("--migration-end-timestamp=")) {
-      migrationEndTimestamp = arg.slice("--migration-end-timestamp=".length);
+    if (arg.startsWith("--sale-deadline-timestamp=")) {
+      saleDeadlineTimestamp = arg.slice("--sale-deadline-timestamp=".length);
       continue;
     }
 
@@ -197,7 +197,7 @@ export function parseCliArgs(argv: string[]) {
   return {
     baseMintKeypairPath,
     command,
-    migrationEndTimestamp,
+    saleDeadlineTimestamp,
     minimumBaseAmountOut,
     partialFill,
     positionals,
