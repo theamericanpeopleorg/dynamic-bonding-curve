@@ -55,7 +55,7 @@ export async function createPool(
   );
   const poolParams = {
     name: options.name ?? "VoteToken",
-    symbol: options.symbol ?? "VOTE",
+    symbol: options.symbol ?? "VOT",
     uri: options.uri ?? "https://example.com/localnet-dbc-token.json",
     deadlineTimestamp: new BN(String(options.deadlineTimestamp ?? 0)),
   };
