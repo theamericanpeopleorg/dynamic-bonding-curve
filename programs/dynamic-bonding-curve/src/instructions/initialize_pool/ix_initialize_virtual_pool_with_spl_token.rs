@@ -31,6 +31,16 @@ pub struct InitializePoolParameters {
     pub deadline_timestamp: u64,
 }
 
+impl InitializePoolParameters {
+    pub fn validate(&self, current_timestamp: u64) -> Result<()> {
+        require!(
+            self.deadline_timestamp == 0 || self.deadline_timestamp > current_timestamp,
+            PoolError::InvalidDeadlineTimestamp
+        );
+        Ok(())
+    }
+}
+
 // To fix IDL generation: https://github.com/coral-xyz/anchor/issues/3209
 pub fn max_key(left: &Pubkey, right: &Pubkey) -> [u8; 32] {
     max(left, right).to_bytes()
@@ -142,6 +152,8 @@ pub fn handle_initialize_virtual_pool_with_spl_token<'c: 'info, 'info>(
     ctx: Context<'_, '_, 'c, 'info, InitializeVirtualPoolWithSplTokenCtx<'info>>,
     params: InitializePoolParameters,
 ) -> Result<()> {
+    params.validate(Clock::get()?.unix_timestamp as u64)?;
+
     let config = ctx.accounts.config.load()?;
 
     require!(

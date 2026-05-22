@@ -52,6 +52,37 @@ describe("Migration deadline", () => {
     });
   });
 
+  it("rejects pool init when deadline timestamp is in the past", async () => {
+    const currentTimestamp = svm.getClock().unixTimestamp;
+    const config = await createDbcConfig(
+      svm,
+      program,
+      1,
+      0,
+      {
+        poolFeeBps: 0,
+        collectFeeMode: 0,
+        dynamicFee: 0,
+      },
+      partner
+    );
+
+    await expectThrowsAsync(async () => {
+      await createPoolWithSplToken(svm, program, {
+        poolCreator,
+        payer: poolCreator,
+        quoteMint: NATIVE_MINT,
+        config,
+        instructionParams: {
+          name: "past deadline",
+          symbol: "PAST",
+          uri: "abc.com",
+          deadlineTimestamp: new BN((currentTimestamp - BigInt(1)).toString()),
+        },
+      });
+    }, "deadline");
+  });
+
   it("keeps below-threshold migration blocked before the deadline", async () => {
     const currentTimestamp = svm.getClock().unixTimestamp;
     const { config, virtualPool } = await createUnderfilledPool({

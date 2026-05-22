@@ -120,6 +120,8 @@ pub fn handle_initialize_virtual_pool_with_token2022<'c: 'info, 'info>(
     ctx: Context<'_, '_, 'c, 'info, InitializeVirtualPoolWithToken2022Ctx<'info>>,
     params: InitializePoolParameters,
 ) -> Result<()> {
+    params.validate(Clock::get()?.unix_timestamp as u64)?;
+
     let config = ctx.accounts.config.load()?;
 
     require!(

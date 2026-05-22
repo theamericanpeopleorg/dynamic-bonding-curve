@@ -212,6 +212,9 @@ pub enum PoolError {
 
     #[msg("Sells are disabled on this curve")]
     SellDisabled,
+
+    #[msg("Invalid deadline timestamp")]
+    InvalidDeadlineTimestamp,
 }
 
 impl From<ProtozolZapError> for PoolError {
