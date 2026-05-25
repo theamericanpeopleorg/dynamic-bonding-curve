@@ -120,6 +120,8 @@ pub fn handle_initialize_virtual_pool_with_token2022<'c: 'info, 'info>(
     ctx: Context<'_, '_, 'c, 'info, InitializeVirtualPoolWithToken2022Ctx<'info>>,
     params: InitializePoolParameters,
 ) -> Result<()> {
+    params.validate(Clock::get()?.unix_timestamp as u64)?;
+
     let config = ctx.accounts.config.load()?;
 
     require!(
@@ -138,7 +140,12 @@ pub fn handle_initialize_virtual_pool_with_token2022<'c: 'info, 'info>(
         PoolError::InvalidTokenType
     );
 
-    let InitializePoolParameters { name, symbol, uri } = params;
+    let InitializePoolParameters {
+        name,
+        symbol,
+        uri,
+        deadline_timestamp,
+    } = params;
 
     // initialize metadata
     let cpi_accounts = TokenMetadataInitialize {
@@ -265,6 +272,7 @@ pub fn handle_initialize_virtual_pool_with_token2022<'c: 'info, 'info>(
         activation_point,
         initial_base_supply,
         PROTOCOL_LIQUIDITY_MIGRATION_FEE_BPS,
+        deadline_timestamp,
     );
 
     emit_cpi!(EvtInitializePool {

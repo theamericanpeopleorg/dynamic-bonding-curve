@@ -75,6 +75,7 @@ export type CreatePoolOptions = {
   name?: string;
   symbol?: string;
   uri?: string;
+  deadlineTimestamp?: string | number | BN;
 };
 
 export type PoolInfoOptions = {

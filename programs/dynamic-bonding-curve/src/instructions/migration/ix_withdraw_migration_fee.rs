@@ -73,16 +73,23 @@ pub fn handle_withdraw_migration_fee(
 ) -> Result<()> {
     let config = ctx.accounts.config.load()?;
     let mut pool = ctx.accounts.virtual_pool.load_mut()?;
+    let current_timestamp = Clock::get()?.unix_timestamp as u64;
 
     // Make sure pool has been completed
     require!(
-        pool.is_curve_complete(config.migration_quote_threshold),
+        pool.is_sale_complete(config.migration_quote_threshold, current_timestamp),
         PoolError::NotPermitToDoThisAction
     );
+    let effective_migration_quote_threshold =
+        if pool.is_curve_complete(config.migration_quote_threshold) {
+            config.migration_quote_threshold
+        } else {
+            pool.quote_reserve
+        };
     let MigrationFeeDistribution {
         creator_migration_fee,
         partner_migration_fee,
-    } = config.get_migration_fee_distribution()?;
+    } = config.get_migration_fee_distribution_for_threshold(effective_migration_quote_threshold)?;
 
     let sender_flag = SenderFlag::try_from(flag).map_err(|_| PoolError::TypeCastFailed)?;
     let fee = if sender_flag == SenderFlag::Partner {

@@ -98,17 +98,18 @@ export async function runKeeper(options: KeeperOptions): Promise<KeeperResult> {
         throw new Error(`Pool not found: ${pool.toBase58()}`);
       }
 
-      const progress = Number(poolState.migrationProgress);
-      const progressLabel = migrationProgressLabel(progress);
-      const action = actionForProgress(progress);
       const saleProgress = await getSaleProgressLogFields({
         connection,
         program,
         poolState,
         saleProgressConfig,
         onRetry,
+        slot,
       });
       saleProgressConfig = saleProgress.config;
+      const progress = Number(poolState.migrationProgress);
+      const progressLabel = migrationProgressLabel(progress);
+      const action = actionForProgress(progress, saleProgress);
       if (lastLoggedProgress !== progress) {
         logEvent({
           event: "pool_state",
@@ -146,7 +147,13 @@ export async function runKeeper(options: KeeperOptions): Promise<KeeperResult> {
         };
       }
 
-      if (progress !== MigrationProgress.LockedVesting) {
+      const shouldAttemptMigration =
+        progress === MigrationProgress.LockedVesting ||
+        (progress === MigrationProgress.PreBondingCurve &&
+          saleProgress.logFields.completionMode === "deadline" &&
+          !saleProgress.config.hasLockedVesting);
+
+      if (!shouldAttemptMigration) {
         return null;
       }
 
@@ -255,6 +262,7 @@ export async function runKeeper(options: KeeperOptions): Promise<KeeperResult> {
 type SaleProgressConfig = {
   config: PublicKey;
   migrationQuoteThreshold: bigint;
+  hasLockedVesting: boolean;
   quoteDecimals: number;
 };
 
@@ -264,9 +272,10 @@ async function getSaleProgressLogFields(params: {
   poolState: any;
   saleProgressConfig?: SaleProgressConfig;
   onRetry?: RpcRetryLogger;
+  slot?: number;
 }): Promise<{
   config: SaleProgressConfig;
-  logFields: Record<string, string | null>;
+  logFields: Record<string, string | boolean | null>;
 }> {
   const configPublicKey = new PublicKey(params.poolState.config);
   let saleProgressConfig = params.saleProgressConfig;
@@ -285,6 +294,7 @@ async function getSaleProgressLogFields(params: {
     saleProgressConfig = {
       config: configPublicKey,
       migrationQuoteThreshold: toBigInt(config.migrationQuoteThreshold),
+      hasLockedVesting: hasLockedVesting(config),
       quoteDecimals: await retryRpc({
         operation: "fetchQuoteDecimalsForSaleProgress",
         fn: () => getQuoteDecimals(params.connection, quoteMint),
@@ -294,10 +304,31 @@ async function getSaleProgressLogFields(params: {
   }
 
   const quoteReserve = toBigInt(params.poolState.quoteReserve);
-  const quoteRemaining =
-    quoteReserve >= saleProgressConfig.migrationQuoteThreshold
-      ? BigInt(0)
-      : saleProgressConfig.migrationQuoteThreshold - quoteReserve;
+  const deadlineTimestamp = toBigInt(params.poolState.deadlineTimestamp ?? 0);
+  const blockTime =
+    params.slot === undefined
+      ? null
+      : await retryRpc({
+          operation: "getBlockTimeForSaleProgress",
+          fn: () => params.connection.getBlockTime(params.slot),
+          onRetry: params.onRetry,
+        });
+  const currentTimestamp = BigInt(
+    (blockTime as number | null) ?? Math.floor(Date.now() / 1000)
+  );
+  const thresholdReached =
+    quoteReserve >= saleProgressConfig.migrationQuoteThreshold;
+  const deadlineReached =
+    deadlineTimestamp !== BigInt(0) && currentTimestamp >= deadlineTimestamp;
+  const saleComplete = thresholdReached || deadlineReached;
+  const completionMode = thresholdReached
+    ? "threshold"
+    : deadlineReached
+    ? "deadline"
+    : "open";
+  const quoteRemaining = thresholdReached
+    ? BigInt(0)
+    : saleProgressConfig.migrationQuoteThreshold - quoteReserve;
   const completedQuote =
     quoteReserve > saleProgressConfig.migrationQuoteThreshold
       ? saleProgressConfig.migrationQuoteThreshold
@@ -321,6 +352,10 @@ async function getSaleProgressLogFields(params: {
         saleProgressConfig.migrationQuoteThreshold,
         saleProgressConfig.quoteDecimals
       ),
+      deadlineTimestampRaw: deadlineTimestamp.toString(),
+      deadlineReached,
+      saleComplete,
+      completionMode,
       quoteRemainingRaw: quoteRemaining.toString(),
       quoteRemainingUi: rawAmountToUi(
         quoteRemaining,
@@ -328,6 +363,21 @@ async function getSaleProgressLogFields(params: {
       ),
     },
   };
+}
+
+function hasLockedVesting(config: any): boolean {
+  const lockedVestingConfig = config.lockedVestingConfig;
+  if (!lockedVestingConfig) {
+    return false;
+  }
+
+  return [
+    lockedVestingConfig.amountPerPeriod,
+    lockedVestingConfig.cliffDurationFromMigrationTime,
+    lockedVestingConfig.frequency,
+    lockedVestingConfig.numberOfPeriod,
+    lockedVestingConfig.cliffUnlockAmount,
+  ].some((value) => toBigInt(value ?? 0) !== BigInt(0));
 }
 
 async function executeDammV2MigrationWithTransportRetries(params: {
@@ -616,9 +666,20 @@ async function executeDammV2Migration(params: {
   };
 }
 
-function actionForProgress(progress: number): string {
+function actionForProgress(
+  progress: number,
+  saleProgress?: {
+    config: SaleProgressConfig;
+    logFields: Record<string, string | boolean | null>;
+  }
+): string {
   switch (progress) {
     case MigrationProgress.PreBondingCurve:
+      if (saleProgress?.logFields.completionMode === "deadline") {
+        return saleProgress.config.hasLockedVesting
+          ? "locker_needed"
+          : "migrate";
+      }
       return "watching";
     case MigrationProgress.PostBondingCurve:
       return "locker_needed";

@@ -8,6 +8,9 @@
   "dependencies": {
     "@coral-xyz/anchor": "^0.32.1",
     "@metaplex-foundation/mpl-token-metadata": "^3.4.0",
+    "@metaplex-foundation/umi": "^1.5.1",
+    "@metaplex-foundation/umi-bundle-defaults": "^1.5.1",
+    "@metaplex-foundation/umi-uploader-irys": "^1.5.0",
     "@meteora-ag/dynamic-bonding-curve-sdk": "^1.5.7"
   },
   "devDependencies": {

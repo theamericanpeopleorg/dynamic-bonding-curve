@@ -500,10 +500,11 @@ async function partnerWithdrawSurplus(
 async function initializeVirtualPoolWithSplToken(
   program: Program<VirtualCurve>
 ): Promise<Buffer> {
-  const instructionParams: InitializePoolParameters = {
+  const instructionParams = {
     name: "name",
     symbol: "symbol",
     uri: "uri",
+    deadlineTimestamp: new BN(0),
   };
 
   const ix = await program.methods
@@ -527,10 +528,11 @@ async function initializeVirtualPoolWithSplToken(
 async function initializeVirtualPoolWithToken2022(
   program: Program<VirtualCurve>
 ): Promise<Buffer> {
-  const instructionParams: InitializePoolParameters = {
+  const instructionParams = {
     name: "name",
     symbol: "symbol",
     uri: "uri",
+    deadlineTimestamp: new BN(0),
   };
 
   const ix = await program.methods

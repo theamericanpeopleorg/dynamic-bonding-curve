@@ -11,7 +11,7 @@ import { buy, createConfig, createPool, poolInfo } from "./commands";
 export function usage() {
   console.log(`Usage:
   pnpm exec tsx scripts/dbc_tool.ts create-config [--rpc-url <URL>] [--quote-mint <MINT>]
-  pnpm exec tsx scripts/dbc_tool.ts create-pool <CONFIG_PUBKEY> [--rpc-url <URL>] [--base-mint-keypair <PATH>]
+  pnpm exec tsx scripts/dbc_tool.ts create-pool <CONFIG_PUBKEY> [--rpc-url <URL>] [--base-mint-keypair <PATH>] [--deadline-timestamp <UNIX_SECONDS>]
   pnpm exec tsx scripts/dbc_tool.ts pool-info <POOL_PUBKEY> [--rpc-url <URL>]
   pnpm exec tsx scripts/dbc_tool.ts buy <POOL_PUBKEY> <BASE_AMOUNT> [--rpc-url <URL>] [--raw]
   pnpm exec tsx scripts/dbc_tool.ts buy <POOL_PUBKEY> <QUOTE_AMOUNT> --partial [--min-base-out <BASE_AMOUNT>] [--rpc-url <URL>] [--raw]
@@ -56,6 +56,7 @@ export async function runCli() {
       baseMint: args.baseMintKeypairPath
         ? loadKeypair(args.baseMintKeypairPath)
         : undefined,
+      deadlineTimestamp: args.deadlineTimestamp,
     });
     console.log(JSON.stringify(publicKeyResultToBase58(result), null, 2));
     return;
@@ -102,6 +103,7 @@ export function parseCliArgs(argv: string[]) {
   let rpcUrl: string | undefined;
   let quoteMint: string | undefined;
   let baseMintKeypairPath: string | undefined;
+  let deadlineTimestamp: string | undefined;
   let minimumBaseAmountOut: string | undefined;
   let partialFill = false;
   let rawAmounts = false;
@@ -148,6 +150,19 @@ export function parseCliArgs(argv: string[]) {
       continue;
     }
 
+    if (arg === "--deadline-timestamp") {
+      deadlineTimestamp = argv[++i];
+      if (!deadlineTimestamp) {
+        throw new Error("--deadline-timestamp requires a unix timestamp");
+      }
+      continue;
+    }
+
+    if (arg.startsWith("--deadline-timestamp=")) {
+      deadlineTimestamp = arg.slice("--deadline-timestamp=".length);
+      continue;
+    }
+
     if (arg === "--partial" || arg === "--partial-fill") {
       partialFill = true;
       continue;
@@ -182,6 +197,7 @@ export function parseCliArgs(argv: string[]) {
   return {
     baseMintKeypairPath,
     command,
+    deadlineTimestamp,
     minimumBaseAmountOut,
     partialFill,
     positionals,
