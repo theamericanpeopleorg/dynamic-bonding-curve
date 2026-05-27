@@ -498,8 +498,10 @@ pub struct PoolConfig {
     pub partner_liquidity_vesting_info: LiquidityVestingInfo,
     // Creator liquidity vesting info, only available for DAMM v2 migration
     pub creator_liquidity_vesting_info: LiquidityVestingInfo,
+    /// max quote token amount used to seed the migrated pool
+    pub migration_quote_amount_cap: u64,
     /// Padding for future use
-    pub padding_0: [u8; 14],
+    pub padding_0: [u8; 6],
     /// Previously was protocol and referral fee percent. Beware of tombstone.
     pub padding_1: u16,
     /// Collect fee mode
@@ -716,6 +718,7 @@ impl PoolConfig {
         migration_fee_option: u8,
         swap_base_amount: u64,
         migration_quote_threshold: u64,
+        migration_quote_amount_cap: u64,
         migration_base_threshold: u64,
         migration_sqrt_price: u128,
         sqrt_start_price: u128,
@@ -749,6 +752,7 @@ impl PoolConfig {
         self.token_decimal = token_decimal;
         self.swap_base_amount = swap_base_amount;
         self.migration_quote_threshold = migration_quote_threshold;
+        self.migration_quote_amount_cap = migration_quote_amount_cap;
         self.migration_base_threshold = migration_base_threshold;
         self.migration_sqrt_price = migration_sqrt_price;
         self.sqrt_start_price = sqrt_start_price;

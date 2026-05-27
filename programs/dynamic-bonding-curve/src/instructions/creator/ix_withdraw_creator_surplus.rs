@@ -48,10 +48,11 @@ pub struct CreatorWithdrawSurplusCtx<'info> {
 pub fn handle_creator_withdraw_surplus(ctx: Context<CreatorWithdrawSurplusCtx>) -> Result<()> {
     let config = ctx.accounts.config.load()?;
     let mut pool = ctx.accounts.virtual_pool.load_mut()?;
+    let current_timestamp = Clock::get()?.unix_timestamp as u64;
 
     // Make sure pool has been completed
     require!(
-        pool.is_curve_complete(config.migration_quote_threshold),
+        pool.is_sale_complete(config.migration_quote_threshold, current_timestamp),
         PoolError::NotPermitToDoThisAction
     );
 
@@ -60,7 +61,7 @@ pub fn handle_creator_withdraw_surplus(ctx: Context<CreatorWithdrawSurplusCtx>) 
         pool.is_creator_withdraw_surplus == 0,
         PoolError::SurplusHasBeenWithdraw
     );
-    let total_surplus = pool.get_total_surplus(config.migration_quote_threshold)?;
+    let total_surplus = pool.get_total_surplus_for_config(&config)?;
     let creator_surplus_amount = pool.get_creator_surplus(&config, total_surplus)?;
 
     transfer_token_from_pool_authority(

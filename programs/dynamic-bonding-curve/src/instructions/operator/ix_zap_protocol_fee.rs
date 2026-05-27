@@ -90,6 +90,7 @@ fn validate_accounts_and_return_withdraw_direction<'info>(
 pub fn handle_zap_protocol_fee(ctx: Context<ZapProtocolFee>, max_amount: u64) -> Result<()> {
     let config = ctx.accounts.config.load()?;
     let mut pool = ctx.accounts.pool.load_mut()?;
+    let current_timestamp = Clock::get()?.unix_timestamp as u64;
     let is_withdrawing_base = validate_accounts_and_return_withdraw_direction(
         &config,
         &pool,
@@ -113,8 +114,11 @@ pub fn handle_zap_protocol_fee(ctx: Context<ZapProtocolFee>, max_amount: u64) ->
         );
         (base_amount, treasury_token_quote_address)
     } else {
-        let quote_amount = pool
-            .claim_protocol_quote_fee_and_surplus(max_amount, config.migration_quote_threshold)?;
+        let quote_amount = pool.claim_protocol_quote_fee_and_surplus_for_config(
+            max_amount,
+            &config,
+            current_timestamp,
+        )?;
 
         let treasury_token_base_address = get_associated_token_address_with_program_id(
             &treasury::ID,

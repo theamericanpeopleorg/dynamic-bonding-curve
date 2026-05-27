@@ -175,6 +175,7 @@ pub mod dynamic_bonding_curve {
                 swap_mode: SwapMode::ExactIn.into(),
                 ..Default::default()
             },
+            false,
         )
     }
 
@@ -182,7 +183,14 @@ pub mod dynamic_bonding_curve {
         ctx: Context<'_, '_, 'c, 'info, SwapCtx<'info>>,
         params: SwapParameters2,
     ) -> Result<()> {
-        instructions::handle_swap_wrapper(ctx, params)
+        instructions::handle_swap_wrapper(ctx, params, false)
+    }
+
+    pub fn virtual_swap2<'c: 'info, 'info>(
+        ctx: Context<'_, '_, 'c, 'info, SwapCtx<'info>>,
+        params: SwapParameters2,
+    ) -> Result<()> {
+        instructions::handle_swap_wrapper(ctx, params, true)
     }
 
     /// PERMISSIONLESS FUNCTIONS ///

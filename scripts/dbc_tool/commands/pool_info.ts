@@ -38,21 +38,28 @@ export async function poolInfo(
   const quoteDecimals = await getQuoteDecimals(connection, quoteMint);
   const baseReserve = toBN(poolState.baseReserve);
   const quoteReserve = toBN(poolState.quoteReserve);
+  const virtualQuoteReserve = toBN(poolState.virtualQuoteReserve ?? 0);
+  const totalSaleQuoteReserve = quoteReserve.add(virtualQuoteReserve);
   const migrationQuoteThreshold = toBN(config.migrationQuoteThreshold);
+  const migrationQuoteAmountCap = toBN(
+    config.migrationQuoteAmountCap ?? migrationQuoteThreshold
+  );
   const migrationBaseThreshold = toBN(config.migrationBaseThreshold);
   const deadlineTimestamp = toBN(poolState.deadlineTimestamp ?? 0);
   const nowTimestamp = new BN(Math.floor(Date.now() / 1000));
   const deadlineReached =
     !deadlineTimestamp.isZero() && nowTimestamp.gte(deadlineTimestamp);
-  const thresholdReached = quoteReserve.gte(migrationQuoteThreshold);
+  const thresholdReached = totalSaleQuoteReserve.gte(migrationQuoteThreshold);
   const saleComplete = thresholdReached || deadlineReached;
   const completionMode = thresholdReached
     ? "threshold"
     : deadlineReached
     ? "deadline"
     : "open";
-  const quoteRemainingToMigration = migrationQuoteThreshold.gt(quoteReserve)
-    ? migrationQuoteThreshold.sub(quoteReserve)
+  const quoteRemainingToMigration = migrationQuoteThreshold.gt(
+    totalSaleQuoteReserve
+  )
+    ? migrationQuoteThreshold.sub(totalSaleQuoteReserve)
     : toBN(0);
   const initialBaseSupply = getInitialBaseSupply(config);
   const tokensSold = initialBaseSupply.sub(
@@ -95,6 +102,13 @@ export async function poolInfo(
       baseReserveUi: rawAmountToUi(baseReserve, baseDecimals),
       quoteReserveRaw: quoteReserve.toString(),
       quoteReserveUi: rawAmountToUi(quoteReserve, quoteDecimals),
+      virtualQuoteReserveRaw: virtualQuoteReserve.toString(),
+      virtualQuoteReserveUi: rawAmountToUi(virtualQuoteReserve, quoteDecimals),
+      totalSaleQuoteReserveRaw: totalSaleQuoteReserve.toString(),
+      totalSaleQuoteReserveUi: rawAmountToUi(
+        totalSaleQuoteReserve,
+        quoteDecimals
+      ),
       tokensSoldRaw: tokensSold.toString(),
       tokensSoldUi: rawAmountToUi(tokensSold, baseDecimals),
       tokensSoldPercentOfInitialSupply: percent(tokensSold, initialBaseSupply),
@@ -121,11 +135,18 @@ export async function poolInfo(
       deadlineReached,
       finishCurveTimestamp: toNumber(poolState.finishCurveTimestamp),
       saleCompletionPercent: percent(
-        bnMin(quoteReserve, migrationQuoteThreshold),
+        bnMin(totalSaleQuoteReserve, migrationQuoteThreshold),
         migrationQuoteThreshold
       ),
       quoteReserveRaw: quoteReserve.toString(),
       quoteReserveUi: rawAmountToUi(quoteReserve, quoteDecimals),
+      virtualQuoteReserveRaw: virtualQuoteReserve.toString(),
+      virtualQuoteReserveUi: rawAmountToUi(virtualQuoteReserve, quoteDecimals),
+      totalSaleQuoteReserveRaw: totalSaleQuoteReserve.toString(),
+      totalSaleQuoteReserveUi: rawAmountToUi(
+        totalSaleQuoteReserve,
+        quoteDecimals
+      ),
       migrationQuoteThresholdRaw: migrationQuoteThreshold.toString(),
       migrationQuoteThresholdUi: rawAmountToUi(
         migrationQuoteThreshold,
@@ -133,6 +154,11 @@ export async function poolInfo(
       ),
       quoteRemainingRaw: quoteRemainingToMigration.toString(),
       quoteRemainingUi: rawAmountToUi(quoteRemainingToMigration, quoteDecimals),
+      migrationQuoteAmountCapRaw: migrationQuoteAmountCap.toString(),
+      migrationQuoteAmountCapUi: rawAmountToUi(
+        migrationQuoteAmountCap,
+        quoteDecimals
+      ),
       migrationBaseThresholdRaw: migrationBaseThreshold.toString(),
       migrationBaseThresholdUi: rawAmountToUi(
         migrationBaseThreshold,

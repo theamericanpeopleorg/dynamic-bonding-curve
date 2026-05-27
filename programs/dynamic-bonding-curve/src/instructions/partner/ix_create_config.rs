@@ -51,6 +51,7 @@ pub struct ConfigParameters {
     pub creator_liquidity_percentage: u8,
     pub creator_permanent_locked_liquidity_percentage: u8,
     pub migration_quote_threshold: u64,
+    pub migration_quote_amount_cap: u64,
     pub sqrt_start_price: u128,
     pub locked_vesting: LockedVestingParams,
     pub migration_fee_option: u8,
@@ -487,6 +488,19 @@ impl ConfigParameters {
             self.migration_quote_threshold > 0,
             PoolError::InvalidQuoteThreshold
         );
+        require!(
+            self.migration_quote_amount_cap > 0
+                && self.migration_quote_amount_cap <= self.migration_quote_threshold,
+            PoolError::InvalidMigrationQuoteAmountCap
+        );
+        require!(
+            self.migration_fee.fee_percentage == 0,
+            PoolError::InvalidMigratorFeePercentage
+        );
+        require!(
+            self.creator_trading_fee_percentage == 0,
+            PoolError::InvalidCreatorTradingFeePercentage
+        );
 
         // validate vesting params
         self.locked_vesting.validate()?;
@@ -580,6 +594,7 @@ pub fn handle_create_config(
         creator_liquidity_percentage,
         creator_permanent_locked_liquidity_percentage,
         migration_quote_threshold,
+        migration_quote_amount_cap,
         sqrt_start_price,
         locked_vesting,
         migration_fee_option,
@@ -726,6 +741,7 @@ pub fn handle_create_config(
         migration_fee_option,
         swap_base_amount,
         migration_quote_threshold,
+        migration_quote_amount_cap,
         included_protocol_fee_migration_base_amount,
         migration_sqrt_price,
         sqrt_start_price,

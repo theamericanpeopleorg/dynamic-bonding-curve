@@ -158,8 +158,10 @@ pub struct VirtualPool {
     pub protocol_migration_quote_fee_amount: u64,
     /// Timestamp at which the sale can complete before the quote threshold is reached. 0 means disabled.
     pub deadline_timestamp: u64,
+    /// quote-equivalent reserve from backend-settled virtual swaps
+    pub virtual_quote_reserve: u64,
     /// Padding for further use
-    pub _padding_2: [u64; 2],
+    pub _padding_2: [u64; 1],
 }
 
 const_assert_eq!(VirtualPool::INIT_SPACE, 416);
@@ -881,7 +883,7 @@ impl VirtualPool {
                         {
                             let amount_consumed = amount_in.safe_sub(amount_left)?;
                             require!(
-                                self.quote_reserve.safe_add(amount_consumed)?
+                                self.total_quote_reserve().safe_add(amount_consumed)?
                                     >= config.migration_quote_threshold,
                                 PoolError::UndeterminedError
                             );
@@ -907,6 +909,7 @@ impl VirtualPool {
         fee_mode: &FeeMode,
         trade_direction: TradeDirection,
         current_timestamp: u64,
+        is_virtual: bool,
     ) -> Result<()> {
         let &SwapResult {
             actual_input_amount,
@@ -952,7 +955,12 @@ impl VirtualPool {
             self.base_reserve = self.base_reserve.safe_add(actual_input_amount)?;
             self.quote_reserve = self.quote_reserve.safe_sub(actual_output_amount)?;
         } else {
-            self.quote_reserve = self.quote_reserve.safe_add(actual_input_amount)?;
+            if is_virtual {
+                self.virtual_quote_reserve =
+                    self.virtual_quote_reserve.safe_add(actual_input_amount)?;
+            } else {
+                self.quote_reserve = self.quote_reserve.safe_add(actual_input_amount)?;
+            }
             self.base_reserve = self.base_reserve.safe_sub(actual_output_amount)?;
         }
 
@@ -1049,6 +1057,25 @@ impl VirtualPool {
         Ok(amount)
     }
 
+    pub fn claim_protocol_quote_fee_and_surplus_for_config(
+        &mut self,
+        max_amount: u64,
+        config: &PoolConfig,
+        current_timestamp: u64,
+    ) -> Result<u64> {
+        let mut amount = self.claim_protocol_quote_fee(max_amount)?;
+
+        if self.is_protocol_withdraw_surplus == 0
+            && self.is_sale_complete(config.migration_quote_threshold, current_timestamp)
+        {
+            self.update_protocol_withdraw_surplus();
+            let protocol_surplus_amount = self.get_protocol_surplus_for_config(config)?;
+            amount = amount.safe_add(protocol_surplus_amount)?;
+        }
+
+        Ok(amount)
+    }
+
     pub fn claim_partner_trading_fee(
         &mut self,
         max_base_amount: u64,
@@ -1084,12 +1111,21 @@ impl VirtualPool {
         self.quote_reserve >= migration_threshold
     }
 
+    pub fn total_quote_reserve(&self) -> u64 {
+        self.quote_reserve.saturating_add(self.virtual_quote_reserve)
+    }
+
+    pub fn is_total_quote_threshold_reached(&self, migration_threshold: u64) -> bool {
+        self.total_quote_reserve() >= migration_threshold
+    }
+
     pub fn is_deadline_reached(&self, current_timestamp: u64) -> bool {
         self.deadline_timestamp != 0 && current_timestamp >= self.deadline_timestamp
     }
 
     pub fn is_sale_complete(&self, migration_threshold: u64, current_timestamp: u64) -> bool {
-        self.is_curve_complete(migration_threshold) || self.is_deadline_reached(current_timestamp)
+        self.is_total_quote_threshold_reached(migration_threshold)
+            || self.is_deadline_reached(current_timestamp)
     }
 
     pub fn update_after_create_pool(&mut self) {
@@ -1098,6 +1134,16 @@ impl VirtualPool {
 
     pub fn get_total_surplus(&self, migration_threshold: u64) -> Result<u64> {
         Ok(self.quote_reserve.safe_sub(migration_threshold)?)
+    }
+
+    pub fn get_effective_migration_quote_amount(&self, config: &PoolConfig) -> u64 {
+        self.quote_reserve.min(config.migration_quote_amount_cap)
+    }
+
+    pub fn get_total_surplus_for_config(&self, config: &PoolConfig) -> Result<u64> {
+        Ok(self
+            .quote_reserve
+            .safe_sub(self.get_effective_migration_quote_amount(config))?)
     }
 
     fn get_partner_and_creator_surplus(&self, total_surplus: u64) -> Result<u64> {
@@ -1130,6 +1176,12 @@ impl VirtualPool {
 
     pub fn get_protocol_surplus(&self, migration_threshold: u64) -> Result<u64> {
         let total_surplus: u64 = self.get_total_surplus(migration_threshold)?;
+        let partner_surplus_amount = self.get_partner_and_creator_surplus(total_surplus)?;
+        Ok(total_surplus.safe_sub(partner_surplus_amount)?)
+    }
+
+    pub fn get_protocol_surplus_for_config(&self, config: &PoolConfig) -> Result<u64> {
+        let total_surplus: u64 = self.get_total_surplus_for_config(config)?;
         let partner_surplus_amount = self.get_partner_and_creator_surplus(total_surplus)?;
         Ok(total_surplus.safe_sub(partner_surplus_amount)?)
     }

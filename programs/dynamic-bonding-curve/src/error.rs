@@ -215,6 +215,9 @@ pub enum PoolError {
 
     #[msg("Invalid deadline timestamp")]
     InvalidDeadlineTimestamp,
+
+    #[msg("Invalid migration quote amount cap")]
+    InvalidMigrationQuoteAmountCap,
 }
 
 impl From<ProtozolZapError> for PoolError {

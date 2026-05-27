@@ -4,10 +4,7 @@ use num_enum::{IntoPrimitive, TryFromPrimitive};
 
 use crate::{
     const_pda,
-    state::{
-        MigrationFeeDistribution, PoolConfig, VirtualPool, CREATOR_MIGRATION_FEE_MASK,
-        PARTNER_MIGRATION_FEE_MASK,
-    },
+    state::{PoolConfig, VirtualPool, CREATOR_MIGRATION_FEE_MASK, PARTNER_MIGRATION_FEE_MASK},
     token::transfer_token_from_pool_authority,
     EvtWithdrawMigrationFee, PoolError,
 };
@@ -80,16 +77,8 @@ pub fn handle_withdraw_migration_fee(
         pool.is_sale_complete(config.migration_quote_threshold, current_timestamp),
         PoolError::NotPermitToDoThisAction
     );
-    let effective_migration_quote_threshold =
-        if pool.is_curve_complete(config.migration_quote_threshold) {
-            config.migration_quote_threshold
-        } else {
-            pool.quote_reserve
-        };
-    let MigrationFeeDistribution {
-        creator_migration_fee,
-        partner_migration_fee,
-    } = config.get_migration_fee_distribution_for_threshold(effective_migration_quote_threshold)?;
+    let creator_migration_fee = 0;
+    let partner_migration_fee = 0;
 
     let sender_flag = SenderFlag::try_from(flag).map_err(|_| PoolError::TypeCastFailed)?;
     let fee = if sender_flag == SenderFlag::Partner {

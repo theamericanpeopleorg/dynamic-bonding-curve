@@ -12,7 +12,7 @@ use crate::swap::swap_partial_fill::process_swap_partial_fill;
 use crate::swap::{ProcessSwapParams, ProcessSwapResult};
 use crate::{
     activation_handler::get_current_point,
-    const_pda,
+    assert_eq_virtual_swap_authority, const_pda,
     params::swap::TradeDirection,
     state::fee::FeeMode,
     state::{PoolConfig, VirtualPool},
@@ -128,6 +128,7 @@ impl<'info> SwapCtx<'info> {
 pub fn handle_swap_wrapper<'c: 'info, 'info>(
     ctx: Context<'_, '_, 'c, 'info, SwapCtx<'info>>,
     params: SwapParameters2,
+    is_virtual: bool,
 ) -> Result<()> {
     let SwapParameters2 {
         amount_0,
@@ -170,6 +171,12 @@ pub fn handle_swap_wrapper<'c: 'info, 'info>(
     };
 
     require!(amount_0 > 0, PoolError::AmountIsZero);
+    if is_virtual {
+        require!(
+            assert_eq_virtual_swap_authority(ctx.accounts.payer.key()),
+            PoolError::Unauthorized
+        );
+    }
 
     let has_referral = ctx.accounts.referral_token_account.is_some();
 
@@ -240,17 +247,20 @@ pub fn handle_swap_wrapper<'c: 'info, 'info>(
         fee_mode,
         trade_direction,
         current_timestamp,
+        is_virtual,
     )?;
 
-    // send to reserve
-    transfer_token_from_user(
-        &ctx.accounts.payer,
-        token_in_mint,
-        &ctx.accounts.input_token_account,
-        input_vault_account,
-        input_program,
-        swap_result_2.included_fee_input_amount,
-    )?;
+    if !is_virtual {
+        // send to reserve
+        transfer_token_from_user(
+            &ctx.accounts.payer,
+            token_in_mint,
+            &ctx.accounts.input_token_account,
+            input_vault_account,
+            input_program,
+            swap_result_2.included_fee_input_amount,
+        )?;
+    }
 
     // send to user
     transfer_token_from_pool_authority(
@@ -290,6 +300,7 @@ pub fn handle_swap_wrapper<'c: 'info, 'info>(
         config: ctx.accounts.config.key(),
         trade_direction: trade_direction.into(),
         has_referral,
+        is_virtual,
         params: swap_in_parameters,
         swap_result,
         amount_in: swap_result_2.included_fee_input_amount,
@@ -301,14 +312,15 @@ pub fn handle_swap_wrapper<'c: 'info, 'info>(
         config: ctx.accounts.config.key(),
         trade_direction: trade_direction.into(),
         has_referral,
+        is_virtual,
         swap_parameters: params,
         swap_result: swap_result_2,
-        quote_reserve_amount: pool.quote_reserve,
+        quote_reserve_amount: pool.total_quote_reserve(),
         migration_threshold: config.migration_quote_threshold,
         current_timestamp,
     });
 
-    if pool.is_curve_complete(config.migration_quote_threshold) {
+    if pool.is_total_quote_threshold_reached(config.migration_quote_threshold) {
         ctx.accounts.base_vault.reload()?;
         // validate if base reserve is enough token for migration
         let base_vault_balance = ctx.accounts.base_vault.amount;

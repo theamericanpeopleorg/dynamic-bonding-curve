@@ -14,7 +14,7 @@ use crate::{
     u128x128_math::Rounding,
     PoolError,
 };
-use anchor_lang::{prelude::Pubkey, require};
+use anchor_lang::prelude::Pubkey;
 use rand::prelude::*;
 
 use super::price_math::get_price_from_id;
@@ -155,6 +155,7 @@ fn simulate_swap_partiall_fill(
         &fee_mode,
         trade_direction,
         current_timestamp,
+        false,
     )
     .unwrap();
 
@@ -188,6 +189,7 @@ fn simulate_swap_exact_out(
                     &fee_mode,
                     trade_direction,
                     current_timestamp,
+                    false,
                 )
                 .unwrap();
                 user.apply_swap_result(&swap_exact_out_result, trade_direction);

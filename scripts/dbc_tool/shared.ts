@@ -9,7 +9,6 @@ import {
   BaseFeeMode,
   buildCurve,
   CollectFeeMode,
-  DynamicBondingCurveIdl,
   getBaseTokenForSwap,
   getDeltaAmountQuoteUnsigned,
   getInitialLiquidityFromDeltaBase,
@@ -120,8 +119,16 @@ export type CreatePoolOnLocalnetOptions = CreatePoolOptions;
 export type CreateConfigOnLocalnetResult = CreateConfigResult;
 export type CreatePoolOnLocalnetResult = CreatePoolResult;
 
+type LocalConfigParameters = ConfigParameters & {
+  migrationQuoteAmountCap: BN;
+};
+
 export function getRpcUrl(rpcUrl?: string): string {
   return rpcUrl ?? process.env.RPC_URL ?? DEFAULT_RPC_URL;
+}
+
+function loadDynamicBondingCurveIdl() {
+  return require("../../target/idl/dynamic_bonding_curve.json");
 }
 
 export function loadKeypair(keypairPath = process.env.KEYPAIR_PATH): Keypair {
@@ -130,7 +137,7 @@ export function loadKeypair(keypairPath = process.env.KEYPAIR_PATH): Keypair {
   return Keypair.fromSecretKey(Uint8Array.from(bytes));
 }
 
-export function buildMschfCurveConfig(): ConfigParameters {
+export function buildMschfCurveConfig(): LocalConfigParameters {
   const tokenBaseDecimal = TokenDecimal.SIX;
   const tokenQuoteDecimal = TokenDecimal.SIX;
   const soldBaseAmount = uiAmountToRaw(
@@ -228,11 +235,12 @@ export function buildMschfCurveConfig(): ConfigParameters {
     ),
   });
 
-  return {
-    ...config,
-    migrationQuoteThreshold,
-    sqrtStartPrice,
-    tokenSupply: {
+    return {
+      ...config,
+      migrationQuoteThreshold,
+      migrationQuoteAmountCap: migrationQuoteThreshold,
+      sqrtStartPrice,
+      tokenSupply: {
       preMigrationTokenSupply: totalSupply,
       postMigrationTokenSupply: totalSupply,
     },
@@ -247,7 +255,7 @@ export async function buildClient(rpcUrl?: string) {
   const provider = new AnchorProvider(connection, null as any, {
     commitment: DEFAULT_COMMITMENT,
   });
-  const idl = JSON.parse(JSON.stringify(DynamicBondingCurveIdl));
+  const idl = JSON.parse(JSON.stringify(loadDynamicBondingCurveIdl()));
   idl.address = DBC_PROGRAM_ID.toBase58();
   const program = new Program(idl, provider);
 

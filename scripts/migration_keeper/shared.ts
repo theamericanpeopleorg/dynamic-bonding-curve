@@ -6,7 +6,6 @@ import path from "path";
 import { AnchorProvider, Program } from "@coral-xyz/anchor";
 import {
   DYNAMIC_BONDING_CURVE_PROGRAM_ID,
-  DynamicBondingCurveIdl,
   getTokenDecimals,
   TokenType,
 } from "@meteora-ag/dynamic-bonding-curve-sdk";
@@ -103,7 +102,7 @@ export function buildClient(rpcUrl?: string, dbcProgramId?: PublicKey) {
   const provider = new AnchorProvider(connection, null as any, {
     commitment: DEFAULT_COMMITMENT,
   });
-  const idl = JSON.parse(JSON.stringify(DynamicBondingCurveIdl));
+  const idl = JSON.parse(JSON.stringify(loadDynamicBondingCurveIdl()));
   idl.address = programId.toBase58();
   const program = new Program(idl, provider);
 
@@ -113,6 +112,10 @@ export function buildClient(rpcUrl?: string, dbcProgramId?: PublicKey) {
     programId,
     rpcUrl: resolvedRpcUrl,
   };
+}
+
+function loadDynamicBondingCurveIdl() {
+  return require("../../target/idl/dynamic_bonding_curve.json");
 }
 
 export function deriveDbcPoolAuthority(programId: PublicKey): PublicKey {

@@ -65,6 +65,7 @@ pub fn handle_claim_protocol_fee(
     max_quote_amount: u64,
 ) -> Result<()> {
     let mut pool = ctx.accounts.pool.load_mut()?;
+    let current_timestamp = Clock::get()?.unix_timestamp as u64;
 
     let token_base_amount = pool.claim_protocol_base_fee(max_base_amount)?;
     if token_base_amount > 0 {
@@ -85,8 +86,11 @@ pub fn handle_claim_protocol_fee(
     }
 
     let config = ctx.accounts.config.load()?;
-    let token_quote_amount = pool
-        .claim_protocol_quote_fee_and_surplus(max_quote_amount, config.migration_quote_threshold)?;
+    let token_quote_amount = pool.claim_protocol_quote_fee_and_surplus_for_config(
+        max_quote_amount,
+        &config,
+        current_timestamp,
+    )?;
 
     if token_quote_amount > 0 {
         validate_ata_token(

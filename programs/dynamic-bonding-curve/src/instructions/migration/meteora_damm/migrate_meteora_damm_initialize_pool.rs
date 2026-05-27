@@ -221,7 +221,8 @@ pub fn handle_migrate_meteora_damm<'info>(
     let migration_progress = virtual_pool.get_migration_progress()?;
     let locked_vesting_params = config.locked_vesting_config.to_locked_vesting_params();
     let deadline_reached = virtual_pool.is_deadline_reached(current_timestamp);
-    let threshold_reached = virtual_pool.is_curve_complete(config.migration_quote_threshold);
+    let sale_complete =
+        virtual_pool.is_total_quote_threshold_reached(config.migration_quote_threshold);
     let can_migrate_after_deadline = migration_progress == MigrationProgress::PreBondingCurve
         && deadline_reached
         && !locked_vesting_params.has_vesting();
@@ -234,7 +235,7 @@ pub fn handle_migrate_meteora_damm<'info>(
     let mut migration_metadata = ctx.accounts.migration_metadata.load_mut()?;
 
     require!(
-        threshold_reached || deadline_reached,
+        sale_complete || deadline_reached,
         PoolError::PoolIsIncompleted
     );
 
@@ -249,11 +250,7 @@ pub fn handle_migrate_meteora_damm<'info>(
         PoolError::InvalidMigrationOption
     );
 
-    let migration_sqrt_price = if threshold_reached {
-        config.migration_sqrt_price
-    } else {
-        virtual_pool.sqrt_price
-    };
+    let migration_sqrt_price = virtual_pool.sqrt_price;
     let liquidity_handler = Box::new(CompoundingLiquidity {
         migration_sqrt_price,
     });
@@ -261,32 +258,26 @@ pub fn handle_migrate_meteora_damm<'info>(
     let initial_base_vault_amount = ctx.accounts.base_vault.amount;
     let protocol_and_partner_base_fee = virtual_pool.get_protocol_and_trading_base_fee()?;
     let (included_protocol_fee_migration_base_amount, included_protocol_fee_migration_quote_amount) =
-        if threshold_reached {
-            liquidity_handler.get_included_protocol_fee_migration_amounts_2(
-                config.migration_base_threshold,
-                config.migration_quote_threshold,
-                config.migration_fee_percentage,
-                initial_base_vault_amount.safe_sub(protocol_and_partner_base_fee)?,
-            )?
-        } else {
-            require!(
-                virtual_pool.quote_reserve > 0,
-                PoolError::InsufficientLiquidityForMigration
-            );
-            let migration_amounts = liquidity_handler
-                .get_included_protocol_fee_migration_amounts_1(
-                    virtual_pool.quote_reserve,
-                    config.migration_fee_percentage,
-                )?;
-            require!(
-                initial_base_vault_amount.safe_sub(protocol_and_partner_base_fee)?
-                    >= migration_amounts.0
-                    && migration_amounts.0 > 0
-                    && migration_amounts.1 > 0,
-                PoolError::InsufficientLiquidityForMigration
-            );
-            migration_amounts
-        };
+    {
+        let migration_quote_amount = virtual_pool.get_effective_migration_quote_amount(&config);
+        require!(
+            migration_quote_amount > 0,
+            PoolError::InsufficientLiquidityForMigration
+        );
+        let migration_amounts =
+            liquidity_handler.get_included_protocol_fee_migration_amounts_1(
+                migration_quote_amount,
+                0,
+            )?;
+        require!(
+            initial_base_vault_amount.safe_sub(protocol_and_partner_base_fee)?
+                >= migration_amounts.0
+                && migration_amounts.0 > 0
+                && migration_amounts.1 > 0,
+            PoolError::InsufficientLiquidityForMigration
+        );
+        migration_amounts
+    };
 
     let (protocol_migration_base_fee, protocol_migration_quote_fee) = liquidity_handler
         .get_migration_protocol_fees(

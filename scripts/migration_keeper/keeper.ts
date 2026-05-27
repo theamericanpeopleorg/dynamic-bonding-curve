@@ -304,6 +304,8 @@ async function getSaleProgressLogFields(params: {
   }
 
   const quoteReserve = toBigInt(params.poolState.quoteReserve);
+  const virtualQuoteReserve = toBigInt(params.poolState.virtualQuoteReserve ?? 0);
+  const totalSaleQuoteReserve = quoteReserve + virtualQuoteReserve;
   const deadlineTimestamp = toBigInt(params.poolState.deadlineTimestamp ?? 0);
   const blockTime =
     params.slot === undefined
@@ -317,7 +319,7 @@ async function getSaleProgressLogFields(params: {
     (blockTime as number | null) ?? Math.floor(Date.now() / 1000)
   );
   const thresholdReached =
-    quoteReserve >= saleProgressConfig.migrationQuoteThreshold;
+    totalSaleQuoteReserve >= saleProgressConfig.migrationQuoteThreshold;
   const deadlineReached =
     deadlineTimestamp !== BigInt(0) && currentTimestamp >= deadlineTimestamp;
   const saleComplete = thresholdReached || deadlineReached;
@@ -328,11 +330,11 @@ async function getSaleProgressLogFields(params: {
     : "open";
   const quoteRemaining = thresholdReached
     ? BigInt(0)
-    : saleProgressConfig.migrationQuoteThreshold - quoteReserve;
+    : saleProgressConfig.migrationQuoteThreshold - totalSaleQuoteReserve;
   const completedQuote =
-    quoteReserve > saleProgressConfig.migrationQuoteThreshold
+    totalSaleQuoteReserve > saleProgressConfig.migrationQuoteThreshold
       ? saleProgressConfig.migrationQuoteThreshold
-      : quoteReserve;
+      : totalSaleQuoteReserve;
 
   return {
     config: saleProgressConfig,
@@ -344,6 +346,16 @@ async function getSaleProgressLogFields(params: {
       quoteReserveRaw: quoteReserve.toString(),
       quoteReserveUi: rawAmountToUi(
         quoteReserve,
+        saleProgressConfig.quoteDecimals
+      ),
+      virtualQuoteReserveRaw: virtualQuoteReserve.toString(),
+      virtualQuoteReserveUi: rawAmountToUi(
+        virtualQuoteReserve,
+        saleProgressConfig.quoteDecimals
+      ),
+      totalSaleQuoteReserveRaw: totalSaleQuoteReserve.toString(),
+      totalSaleQuoteReserveUi: rawAmountToUi(
+        totalSaleQuoteReserve,
         saleProgressConfig.quoteDecimals
       ),
       migrationQuoteThresholdRaw:

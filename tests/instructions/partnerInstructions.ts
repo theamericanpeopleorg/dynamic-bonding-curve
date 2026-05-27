@@ -88,6 +88,7 @@ export type ConfigParameters = {
   tokenType: number;
   tokenDecimal: number;
   migrationQuoteThreshold: BN;
+  migrationQuoteAmountCap?: BN;
   partnerLiquidityPercentage: number;
   partnerPermanentLockedLiquidityPercentage: number;
   creatorLiquidityPercentage: number;
@@ -151,6 +152,9 @@ export async function createConfig(
   const transaction = await program.methods
     .createConfig({
       ...instructionParams,
+      migrationQuoteAmountCap:
+        instructionParams.migrationQuoteAmountCap ??
+        instructionParams.migrationQuoteThreshold,
       padding: new Array(2).fill(0),
     })
     .accountsPartial({
