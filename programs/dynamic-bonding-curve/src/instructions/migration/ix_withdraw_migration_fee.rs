@@ -5,7 +5,10 @@ use num_enum::{IntoPrimitive, TryFromPrimitive};
 use crate::{
     const_pda,
     event::EvtWithdrawMigrationFee,
-    state::{MigrationFeeDistribution, CREATOR_MIGRATION_FEE_MASK, PARTNER_MIGRATION_FEE_MASK},
+    state::{
+        MigrationFeeDistribution, MigrationProgress, CREATOR_MIGRATION_FEE_MASK,
+        PARTNER_MIGRATION_FEE_MASK,
+    },
     token::transfer_token_from_pool_authority,
     ConfigAccountLoader, PoolAccountLoader, PoolError,
 };
@@ -86,15 +89,23 @@ pub fn handle_withdraw_migration_fee(
         ErrorCode::ConstraintHasOne
     );
 
-    // Make sure pool has been completed
+    let threshold_reached = pool.is_curve_complete(config.migration_quote_threshold);
+    let migration_progress = pool.get_migration_progress()?;
+
+    // Deadline-completed pools can withdraw migration fees only after migration.
     require!(
-        pool.is_curve_complete(config.migration_quote_threshold),
+        threshold_reached || migration_progress == MigrationProgress::CreatedPool,
         PoolError::NotPermitToDoThisAction
     );
+    let effective_migration_quote_threshold = if threshold_reached {
+        config.migration_quote_threshold
+    } else {
+        pool.quote_reserve
+    };
     let MigrationFeeDistribution {
         creator_migration_fee,
         partner_migration_fee,
-    } = config.get_migration_fee_distribution()?;
+    } = config.get_migration_fee_distribution_for_threshold(effective_migration_quote_threshold)?;
 
     let sender_flag = SenderFlag::try_from(flag).map_err(|_| PoolError::TypeCastFailed)?;
     let fee = if sender_flag == SenderFlag::Partner {

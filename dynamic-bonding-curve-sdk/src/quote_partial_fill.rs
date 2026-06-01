@@ -16,7 +16,7 @@ pub fn quote_partial_fill(
     eligible_for_first_swap_with_min_fee: bool, // Only for creator to bundle swap in initialize pool instruction to avoid anti sniper suite fee
 ) -> Result<SwapResult2> {
     ensure!(
-        !pool.is_curve_complete(config.migration_quote_threshold),
+        !pool.is_sale_complete(config.migration_quote_threshold, current_timestamp),
         "virtual pool is completed"
     );
 

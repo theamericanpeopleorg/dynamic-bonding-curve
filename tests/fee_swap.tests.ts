@@ -15,7 +15,9 @@ import {
 } from "./instructions";
 import {
   createVirtualCurveProgram,
+  expectThrowsAsync,
   generateAndFund,
+  getDbcProgramErrorCodeHexString,
   getTokenAccount,
   MAX_SQRT_PRICE,
   MIN_SQRT_PRICE,
@@ -256,22 +258,8 @@ describe("Fee Swap test", () => {
       );
     });
 
-    it("Swap Base to Quote", async () => {
+    it("Rejects Swap Base to Quote (sells disabled)", async () => {
       virtualPoolState = getVirtualPool(svm, program, virtualPool);
-
-      // use to validate virtual curve state
-      const preBaseReserve = virtualPoolState.baseReserve;
-      const preQuoteReserve = virtualPoolState.quoteReserve;
-      const preQuoteTradingFee = virtualPoolState.partnerQuoteFee;
-      const preBaseTradingFee = virtualPoolState.partnerBaseFee;
-      const preQuoteProtocolFee = virtualPoolState.protocolQuoteFee;
-      const preBaseProtocolFee = virtualPoolState.protocolBaseFee;
-
-      // use to validate actual balance in vault
-      const preBaseVaultBalance =
-        getTokenAccount(svm, virtualPoolState.baseVault).amount ?? 0;
-      const preQuoteVaultBalance =
-        getTokenAccount(svm, virtualPoolState.quoteVault).amount ?? 0;
 
       const userBaseTokenAccount = getAssociatedTokenAddressSync(
         virtualPoolState.baseMint,
@@ -281,92 +269,21 @@ describe("Fee Swap test", () => {
         ? getTokenAccount(svm, userBaseTokenAccount).amount
         : 0;
 
-      const inAmount = preUserBaseBaseBalance;
       const params: SwapParams = {
         config,
         payer: user,
         pool: virtualPool,
         inputTokenMint: virtualPoolState.baseMint,
         outputTokenMint: NATIVE_MINT,
-        amountIn: new BN(inAmount.toString()),
+        amountIn: new BN(preUserBaseBaseBalance.toString()),
         minimumAmountOut: new BN(0),
         swapMode: SwapMode.ExactIn,
         referralTokenAccount: null,
       };
-      await swap(svm, program, params);
-
-      // reload new virtualPoolState
-      virtualPoolState = getVirtualPool(svm, program, virtualPool);
-
-      // use to validate virtual curve state
-      const postBaseReserve = virtualPoolState.baseReserve;
-      const postQuoteReserve = virtualPoolState.quoteReserve;
-      const postQuoteTradingFee = virtualPoolState.partnerQuoteFee;
-      const postBaseTradingFee = virtualPoolState.partnerBaseFee;
-      const postQuoteProtocolFee = virtualPoolState.protocolQuoteFee;
-      const postBaseProtocolFee = virtualPoolState.protocolBaseFee;
-
-      // use to validate actual balance in vault
-      const postBaseVaultBalance = getTokenAccount(
-        svm,
-        virtualPoolState.baseVault
-      ).amount;
-      const postQuoteVaultBalance = getTokenAccount(
-        svm,
-        virtualPoolState.quoteVault
-      ).amount;
-
-      const totalSwapBaseTradingFee = postBaseTradingFee.sub(preBaseTradingFee);
-      const totalSwapQuoteTradingFee =
-        postQuoteTradingFee.sub(preQuoteTradingFee);
-
-      const totalSwapBaseProtolFee =
-        postBaseProtocolFee.sub(preBaseProtocolFee);
-      const totalSwapQuoteProtocolFee =
-        postQuoteProtocolFee.sub(preQuoteProtocolFee);
-
-      const postUserBaseBaseBalance = getTokenAccount(
-        svm,
-        userBaseTokenAccount
-      ).amount;
-
-      // assert virtual state changed
-      expect(totalSwapQuoteProtocolFee.toString()).eq(
-        virtualPoolState.protocolQuoteFee.toString()
-      );
-      expect(totalSwapQuoteTradingFee.toString()).eq(
-        virtualPoolState.partnerQuoteFee.toString()
-      );
-      expect(totalSwapBaseProtolFee.toNumber()).eq(0);
-      expect(totalSwapBaseTradingFee.toNumber()).eq(0);
-
-      expect(postBaseReserve.sub(preBaseReserve).toString()).eq(
-        inAmount.toString()
-      );
-
-      // assert balance vault changed
-      expect(
-        (
-          Number(preUserBaseBaseBalance) - Number(postUserBaseBaseBalance)
-        ).toString()
-      ).eq(inAmount.toString());
-      expect(
-        (Number(postBaseVaultBalance) - Number(preBaseVaultBalance)).toString()
-      ).eq(inAmount.toString());
-      expect(
-        (
-          Number(preQuoteVaultBalance) - Number(postQuoteVaultBalance)
-        ).toString()
-      ).eq(
-        preQuoteReserve
-          .sub(postQuoteReserve)
-          .sub(totalSwapQuoteTradingFee)
-          .sub(totalSwapQuoteProtocolFee)
-          .toString()
-      );
-      expect(
-        (Number(postBaseVaultBalance) - Number(preBaseVaultBalance)).toString()
-      ).eq(inAmount.toString());
+      const errorCode = getDbcProgramErrorCodeHexString("SellDisabled");
+      await expectThrowsAsync(async () => {
+        await swap(svm, program, params);
+      }, errorCode);
     });
   });
 
@@ -594,22 +511,8 @@ describe("Fee Swap test", () => {
       ).eq(userBaseBaseBalance.toString());
     });
 
-    it("Swap Base to Quote", async () => {
+    it("Rejects Swap Base to Quote (sells disabled)", async () => {
       virtualPoolState = getVirtualPool(svm, program, virtualPool);
-
-      // use to validate virtual curve state
-      const preBaseReserve = virtualPoolState.baseReserve;
-      const preQuoteReserve = virtualPoolState.quoteReserve;
-      const preQuoteTradingFee = virtualPoolState.partnerQuoteFee;
-      const preBaseTradingFee = virtualPoolState.partnerBaseFee;
-      const preQuoteProtocolFee = virtualPoolState.protocolQuoteFee;
-      const preBaseProtocolFee = virtualPoolState.protocolBaseFee;
-
-      // use to validate actual balance in vault
-      const preBaseVaultBalance =
-        getTokenAccount(svm, virtualPoolState.baseVault).amount ?? 0;
-      const preQuoteVaultBalance =
-        getTokenAccount(svm, virtualPoolState.quoteVault).amount ?? 0;
 
       const userBaseTokenAccount = getAssociatedTokenAddressSync(
         virtualPoolState.baseMint,
@@ -620,84 +523,21 @@ describe("Fee Swap test", () => {
         userBaseTokenAccount
       ).amount;
 
-      const inAmount = preUserBaseBaseBalance;
       const params: SwapParams = {
         config,
         payer: user,
         pool: virtualPool,
         inputTokenMint: virtualPoolState.baseMint,
         outputTokenMint: NATIVE_MINT,
-        amountIn: new BN(inAmount.toString()),
+        amountIn: new BN(preUserBaseBaseBalance.toString()),
         minimumAmountOut: new BN(0),
         swapMode: SwapMode.ExactIn,
         referralTokenAccount: null,
       };
-      await swap(svm, program, params);
-
-      // reload new virtualPoolState
-      virtualPoolState = getVirtualPool(svm, program, virtualPool);
-
-      // use to validate virtual curve state
-      const postBaseReserve = virtualPoolState.baseReserve;
-      const postQuoteReserve = virtualPoolState.quoteReserve;
-      const postQuoteTradingFee = virtualPoolState.partnerQuoteFee;
-      const postBaseTradingFee = virtualPoolState.partnerBaseFee;
-      const postQuoteProtocolFee = virtualPoolState.protocolQuoteFee;
-      const postBaseProtocolFee = virtualPoolState.protocolBaseFee;
-
-      // use to validate actual balance in vault
-      const postBaseVaultBalance = getTokenAccount(
-        svm,
-        virtualPoolState.baseVault
-      ).amount;
-      const postQuoteVaultBalance = getTokenAccount(
-        svm,
-        virtualPoolState.quoteVault
-      ).amount;
-
-      const totalSwapBaseTradingFee = postBaseTradingFee.sub(preBaseTradingFee);
-      const totalSwapQuoteTradingFee =
-        postQuoteTradingFee.sub(preQuoteTradingFee);
-
-      const totalSwapBaseProtolFee =
-        postBaseProtocolFee.sub(preBaseProtocolFee);
-      const totalSwapQuoteProtocolFee =
-        postQuoteProtocolFee.sub(preQuoteProtocolFee);
-
-      const postUserBaseBaseBalance = getTokenAccount(
-        svm,
-        userBaseTokenAccount
-      ).amount;
-      expect(totalSwapBaseProtolFee.toNumber()).eq(0);
-      expect(totalSwapBaseTradingFee.toNumber()).eq(0);
-
-      expect(postBaseReserve.sub(preBaseReserve).toString()).eq(
-        inAmount.toString()
-      );
-
-      //   // assert balance vault changed
-      expect(
-        (
-          Number(preUserBaseBaseBalance) - Number(postUserBaseBaseBalance)
-        ).toString()
-      ).eq(inAmount.toString());
-      expect(
-        (Number(postBaseVaultBalance) - Number(preBaseVaultBalance)).toString()
-      ).eq(inAmount.toString());
-      expect(
-        (
-          Number(preQuoteVaultBalance) - Number(postQuoteVaultBalance)
-        ).toString()
-      ).eq(
-        preQuoteReserve
-          .sub(postQuoteReserve)
-          .sub(totalSwapQuoteTradingFee)
-          .sub(totalSwapQuoteProtocolFee)
-          .toString()
-      );
-      expect(
-        (Number(postBaseVaultBalance) - Number(preBaseVaultBalance)).toString()
-      ).eq(inAmount.toString());
+      const errorCode = getDbcProgramErrorCodeHexString("SellDisabled");
+      await expectThrowsAsync(async () => {
+        await swap(svm, program, params);
+      }, errorCode);
     });
   });
 });

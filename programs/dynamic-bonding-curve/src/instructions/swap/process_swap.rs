@@ -138,6 +138,10 @@ pub fn process_swap<'a: 'info, 'info>(
     } else {
         TradeDirection::QuoteToBase
     };
+    require!(
+        trade_direction == TradeDirection::QuoteToBase,
+        PoolError::SellDisabled
+    );
 
     // Reborrow base_vault as immutable to match quote_vault's type in the match
     let base_vault_ref: &Box<InterfaceAccount<'info, TokenAccount>> = base_vault;
@@ -218,14 +222,15 @@ pub fn process_swap<'a: 'info, 'info>(
         )
         .is_ok();
 
-    // validate if it is over threshold
+    // update for dynamic fee reference
+    let current_timestamp = Clock::get()?.unix_timestamp as u64;
+
+    // validate if the sale is already complete
     require!(
-        !pool.is_curve_complete(config.migration_quote_threshold),
+        !pool.is_sale_complete(config.migration_quote_threshold, current_timestamp),
         PoolError::PoolIsCompleted
     );
 
-    // update for dynamic fee reference
-    let current_timestamp = Clock::get()?.unix_timestamp as u64;
     pool.update_pre_swap(&config, current_timestamp)?;
 
     let fee_mode = &FeeMode::get_fee_mode(config.collect_fee_mode, trade_direction, has_referral)?;

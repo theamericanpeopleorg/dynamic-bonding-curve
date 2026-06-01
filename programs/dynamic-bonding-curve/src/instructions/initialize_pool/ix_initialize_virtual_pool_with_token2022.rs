@@ -116,6 +116,7 @@ pub fn handle_initialize_virtual_pool_with_token2022<'info>(
         activation_point,
         initial_base_supply,
         sqrt_start_price,
+        deadline_timestamp,
     } = process_initialize_virtual_pool_with_token2022(
         ctx.accounts.config.as_ref(),
         &ctx.accounts.pool_authority,
@@ -142,6 +143,7 @@ pub fn handle_initialize_virtual_pool_with_token2022<'info>(
         activation_point,
         initial_base_supply,
         PROTOCOL_LIQUIDITY_MIGRATION_FEE_BPS,
+        deadline_timestamp,
     );
 
     emit_cpi!(EvtInitializePool {

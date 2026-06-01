@@ -1,0 +1,15 @@
+################################################################
+# Seed Surfnet-only token balances used by local DBC scripts
+################################################################
+
+action "fund_admin_usdc" "svm::setup_surfnet" {
+    description = "Seed the local admin with mainnet USDC for Surfnet buys"
+    rpc_api_url = input.rpc_api_url
+    set_token_account {
+        public_key = signer.payer.public_key
+        token = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"
+        token_program = "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+        amount = 100000000000000 // 100,000,000 USDC with 6 decimals
+        state = "initialized"
+    }
+}

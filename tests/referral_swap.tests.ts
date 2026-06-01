@@ -18,6 +18,7 @@ import {
 } from "./instructions";
 import {
   createVirtualCurveProgram,
+  expectThrowsAsync,
   generateAndFund,
   getTokenAccount,
   MAX_SQRT_PRICE,
@@ -55,8 +56,6 @@ describe("Swap with referral (Anchor dup constraint)", () => {
   let userBaseAta: PublicKey;
 
   let nonSelfQuoteToBaseUserQuote: bigint;
-  let nonSelfBaseToQuoteUserQuote: bigint;
-
   beforeEach(async () => {
     svm = startSvm();
     admin = generateAndFund(svm);
@@ -257,20 +256,18 @@ describe("Swap with referral (Anchor dup constraint)", () => {
       swapMode: SwapMode.ExactIn,
       referralTokenAccount,
     };
-    await swap(svm, program, swapParams);
+    await expectThrowsAsync(async () => {
+      await swap(svm, program, swapParams);
+    }, "Sells are disabled");
 
     const postReferralBalance =
       getTokenAccount(svm, referralTokenAccount)?.amount ?? BigInt(0);
     const userQuote = getTokenAccount(svm, userQuoteAta)!.amount;
     const userBase = getTokenAccount(svm, userBaseAta)!.amount;
 
-    expect(Number(postReferralBalance)).to.be.greaterThan(
-      Number(preReferralBalance)
-    );
-    expect(Number(userBase)).to.be.lessThan(Number(preUserBase));
-    expect(Number(userQuote)).to.be.greaterThan(Number(preUserQuote));
-
-    nonSelfBaseToQuoteUserQuote = userQuote;
+    expect(Number(postReferralBalance)).eq(Number(preReferralBalance));
+    expect(Number(userBase)).eq(Number(preUserBase));
+    expect(Number(userQuote)).eq(Number(preUserQuote));
   });
 
   it("Self-referral on QuoteToBase, input_token_account = referralTokenAccount", async () => {
@@ -327,15 +324,14 @@ describe("Swap with referral (Anchor dup constraint)", () => {
       swapMode: SwapMode.ExactIn,
       referralTokenAccount: userQuoteAta,
     };
-    await swap(svm, program, swapParams);
+    await expectThrowsAsync(async () => {
+      await swap(svm, program, swapParams);
+    }, "Sells are disabled");
 
     const userQuote = getTokenAccount(svm, userQuoteAta)!.amount;
     const userBase = getTokenAccount(svm, userBaseAta)!.amount;
 
-    expect(Number(userBase)).to.be.lessThan(Number(preUserBase));
-    expect(Number(userQuote)).to.be.greaterThan(Number(preUserQuote));
-    expect(Number(userQuote)).to.be.greaterThan(
-      Number(nonSelfBaseToQuoteUserQuote)
-    );
+    expect(Number(userBase)).eq(Number(preUserBase));
+    expect(Number(userQuote)).eq(Number(preUserQuote));
   });
 });

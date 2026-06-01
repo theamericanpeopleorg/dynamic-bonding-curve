@@ -42,6 +42,7 @@ export type InitializePoolParameters = {
   name: string;
   symbol: string;
   uri: string;
+  deadlineTimestamp?: BN;
 };
 export type CreatePoolSplTokenParams = {
   payer: Keypair;
@@ -67,6 +68,8 @@ export async function createInitializePoolWithSplTokenIx(
   baseMintKP: Keypair;
 }> {
   const { payer, quoteMint, poolCreator, config, instructionParams } = params;
+  const normalizedInstructionParams =
+    normalizeInitializePoolParameters(instructionParams);
   const configState = getConfig(svm, program, config);
 
   const poolAuthority = derivePoolAuthority();
@@ -80,7 +83,7 @@ export async function createInitializePoolWithSplTokenIx(
   const tokenProgram =
     configState.tokenType == 0 ? TOKEN_PROGRAM_ID : TOKEN_2022_PROGRAM_ID;
   const instruction = await program.methods
-    .initializeVirtualPoolWithSplToken(instructionParams)
+    .initializeVirtualPoolWithSplToken(normalizedInstructionParams)
     .accountsPartial({
       config,
       baseMint: baseMintKP.publicKey,
@@ -136,6 +139,8 @@ export async function createPoolWithToken2022(
   params: CreatePoolToken2022Params
 ): Promise<PublicKey> {
   const { payer, quoteMint, config, instructionParams, poolCreator } = params;
+  const normalizedInstructionParams =
+    normalizeInitializePoolParameters(instructionParams);
 
   const poolAuthority = derivePoolAuthority();
   const baseMintKP = Keypair.generate();
@@ -143,7 +148,7 @@ export async function createPoolWithToken2022(
   const baseVault = deriveTokenVaultAddress(baseMintKP.publicKey, pool);
   const quoteVault = deriveTokenVaultAddress(quoteMint, pool);
   const transaction = await program.methods
-    .initializeVirtualPoolWithToken2022(instructionParams)
+    .initializeVirtualPoolWithToken2022(normalizedInstructionParams)
     .accountsPartial({
       config,
       baseMint: baseMintKP.publicKey,
@@ -189,8 +194,10 @@ export async function createPoolWithToken2022TransferHook(
   const pool = derivePoolAddress(config, baseMintKP.publicKey, quoteMint);
   const baseVault = deriveTokenVaultAddress(baseMintKP.publicKey, pool);
   const quoteVault = deriveTokenVaultAddress(quoteMint, pool);
+  const normalizedInstructionParams =
+    normalizeInitializePoolParameters(instructionParams);
   const transaction = await program.methods
-    .initializeVirtualPoolWithToken2022TransferHook(instructionParams)
+    .initializeVirtualPoolWithToken2022TransferHook(normalizedInstructionParams)
     .accountsPartial({
       config,
       baseMint: baseMintKP.publicKey,
@@ -216,6 +223,13 @@ export async function createPoolWithToken2022TransferHook(
   sendTransactionMaybeThrow(svm, transaction, [payer, baseMintKP, poolCreator]);
 
   return pool;
+}
+
+function normalizeInitializePoolParameters(instructionParams: InitializePoolParameters) {
+  return {
+    ...instructionParams,
+    deadlineTimestamp: instructionParams.deadlineTimestamp ?? new BN(0),
+  };
 }
 
 export enum SwapMode {

@@ -78,8 +78,8 @@ pub mod fee {
     /// Max basis point. 100% in pct
     pub const MAX_BASIS_POINT: u64 = 10000;
 
-    pub const MIN_FEE_BPS: u64 = 25; // 0.25% // previous min_fee_bps is 1 (0.01%)
-    pub const MIN_FEE_NUMERATOR: u64 = 2_500_000; // previous is 100_000
+    pub const MIN_FEE_BPS: u64 = 0;
+    pub const MIN_FEE_NUMERATOR: u64 = 0;
 
     static_assertions::const_assert_eq!(
         MAX_FEE_BPS * FEE_DENOMINATOR / MAX_BASIS_POINT,
@@ -104,7 +104,7 @@ pub mod fee {
     pub const MAX_POOL_CREATION_FEE: u64 = 100_000_000_000;
 
     // migration fee bps
-    pub const PROTOCOL_LIQUIDITY_MIGRATION_FEE_BPS: u16 = 20; // 0.2%
+    pub const PROTOCOL_LIQUIDITY_MIGRATION_FEE_BPS: u16 = 0;
 }
 
 pub mod seeds {

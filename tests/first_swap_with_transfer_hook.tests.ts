@@ -466,10 +466,11 @@ async function createInitializePoolWithTransferHookIx(
   const baseVault = deriveTokenVaultAddress(baseMintKP.publicKey, pool);
   const quoteVault = deriveTokenVaultAddress(quoteMint, pool);
 
-  const initPoolParams: InitializePoolParameters = {
+  const initPoolParams = {
     name: "test token 2022 with transfer hook",
     symbol: "TEST",
     uri: "abc.com",
+    deadlineTimestamp: new BN(0),
   };
 
   const initPoolIx = await program.methods

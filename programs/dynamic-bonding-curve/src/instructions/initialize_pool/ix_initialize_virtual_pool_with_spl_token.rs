@@ -29,6 +29,17 @@ pub struct InitializePoolParameters {
     pub name: String,
     pub symbol: String,
     pub uri: String,
+    pub deadline_timestamp: u64,
+}
+
+impl InitializePoolParameters {
+    pub fn validate(&self, current_timestamp: u64) -> Result<()> {
+        require!(
+            self.deadline_timestamp == 0 || self.deadline_timestamp > current_timestamp,
+            PoolError::InvalidDeadlineTimestamp
+        );
+        Ok(())
+    }
 }
 
 // To fix IDL generation: https://github.com/coral-xyz/anchor/issues/3209
@@ -142,6 +153,8 @@ pub fn handle_initialize_virtual_pool_with_spl_token<'info>(
     ctx: Context<'info, InitializeVirtualPoolWithSplTokenCtx<'info>>,
     params: InitializePoolParameters,
 ) -> Result<()> {
+    params.validate(Clock::get()?.unix_timestamp as u64)?;
+
     let config = ctx.accounts.config.load()?;
 
     require!(
@@ -162,7 +175,12 @@ pub fn handle_initialize_virtual_pool_with_spl_token<'info>(
         PoolError::InvalidTokenType
     );
 
-    let InitializePoolParameters { name, symbol, uri } = params;
+    let InitializePoolParameters {
+        name,
+        symbol,
+        uri,
+        deadline_timestamp,
+    } = params;
 
     let token_authority = config.get_token_authority()?;
     // mint authority option are deprecated and no longer allowed for new pools
@@ -249,6 +267,7 @@ pub fn handle_initialize_virtual_pool_with_spl_token<'info>(
         activation_point,
         initial_base_supply,
         PROTOCOL_LIQUIDITY_MIGRATION_FEE_BPS,
+        deadline_timestamp,
     );
 
     emit_cpi!(EvtInitializePool {

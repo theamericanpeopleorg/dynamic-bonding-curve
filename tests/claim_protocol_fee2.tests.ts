@@ -79,24 +79,8 @@ describe("Claim protocol fee 2", () => {
       referralTokenAccount: null,
     };
 
-    const swapSell = {
-      config,
-      payer: poolCreator,
-      pool: virtualPool,
-      inputTokenMint: baseMint,
-      outputTokenMint: NATIVE_MINT,
-      amountIn: new BN(1_000_000),
-      minimumAmountOut: new BN(0),
-      swapMode: SwapMode.PartialFill,
-      referralTokenAccount: null,
-    };
-
     await swap(svm, program, swapBuy);
-    await swap(svm, program, swapSell);
 
-    const poolState = getVirtualPool(svm, program, virtualPool);
-    expect(poolState.protocolBaseFee.gtn(0)).to.be.true;
-    expect(poolState.protocolQuoteFee.gtn(0)).to.be.true;
   });
 
   it("rejects when signed by operator (not protocol_fee_authority)", async () => {
@@ -136,7 +120,7 @@ describe("Claim protocol fee 2", () => {
         claimProtocolFee2(svm, program, {
           signerKP: admin,
           pool: virtualPool,
-          isTokenBase: true,
+          isTokenBase: false,
           receiverTokenAccount,
         }),
       ANCHOR_CONSTRAINT_ADDRESS_ERROR

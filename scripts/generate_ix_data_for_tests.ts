@@ -1,20 +1,26 @@
+import { readFileSync } from "fs";
 import { writeFile } from "fs/promises";
-import { AnchorProvider, BN, Program, Wallet } from "@anchor-lang/core";
+import path from "path";
+import { AnchorProvider, Program, Wallet } from "@anchor-lang/core";
 import { clusterApiUrl, Connection, Keypair, PublicKey } from "@solana/web3.js";
-
-import { MAX_SQRT_PRICE, MIN_SQRT_PRICE, U64_MAX } from "../tests/utils";
-import {
-  InitializePoolParameters,
-  ConfigParameters,
-  SwapMode,
-} from "../tests/instructions";
-
+import BN from "bn.js";
 import { DynamicBondingCurve as VirtualCurve } from "../target/types/dynamic_bonding_curve";
 
+const U64_MAX = new BN("18446744073709551615");
+const MIN_SQRT_PRICE = new BN("4295048016");
+const MAX_SQRT_PRICE = new BN("79226673521066979257578248091");
+
+enum SwapMode {
+  ExactIn,
+  PartialFill,
+  ExactOut,
+}
+
 const args = process.argv.slice(2); // Remove node path and script path
-var path = require("path");
-var absolutePath = path.resolve("./scripts/idl/" + args[0]);
-const VirtualCurveIDL = require(absolutePath);
+const idlPath = args[0]
+  ? path.resolve("./scripts/idl/" + args[0])
+  : path.resolve("./target/idl/dynamic_bonding_curve.json");
+const VirtualCurveIDL = JSON.parse(readFileSync(idlPath, "utf8"));
 const isOldVersion = VirtualCurveIDL.metadata.version == "0.1.2";
 
 /* generate_ix_data_for_tests.ts
@@ -504,10 +510,11 @@ async function partnerWithdrawSurplus(
 async function initializeVirtualPoolWithSplToken(
   program: Program<VirtualCurve>
 ): Promise<Buffer> {
-  const instructionParams: InitializePoolParameters = {
+  const instructionParams = {
     name: "name",
     symbol: "symbol",
     uri: "uri",
+    deadlineTimestamp: new BN(0),
   };
 
   const ix = await program.methods
@@ -531,10 +538,11 @@ async function initializeVirtualPoolWithSplToken(
 async function initializeVirtualPoolWithToken2022(
   program: Program<VirtualCurve>
 ): Promise<Buffer> {
-  const instructionParams: InitializePoolParameters = {
+  const instructionParams = {
     name: "name",
     symbol: "symbol",
     uri: "uri",
+    deadlineTimestamp: new BN(0),
   };
 
   const ix = await program.methods

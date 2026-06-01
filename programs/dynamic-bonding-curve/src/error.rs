@@ -239,6 +239,12 @@ pub enum PoolError {
 
     #[msg("Invalid remaining account slice type for this instruction")]
     InvalidRemainingAccountSliceType,
+
+    #[msg("Sells are disabled on this curve")]
+    SellDisabled,
+
+    #[msg("Invalid deadline timestamp")]
+    InvalidDeadlineTimestamp,
 }
 
 impl From<ProtozolZapError> for PoolError {

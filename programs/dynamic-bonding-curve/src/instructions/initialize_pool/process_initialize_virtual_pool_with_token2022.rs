@@ -19,6 +19,7 @@ pub struct InitPoolData {
     pub activation_point: u64,
     pub initial_base_supply: u64,
     pub sqrt_start_price: u128,
+    pub deadline_timestamp: u64,
 }
 
 pub fn process_initialize_virtual_pool_with_token2022<'info>(
@@ -33,6 +34,8 @@ pub fn process_initialize_virtual_pool_with_token2022<'info>(
     system_program: &AccountInfo<'info>,
     params: InitializePoolParameters,
 ) -> Result<InitPoolData> {
+    params.validate(Clock::get()?.unix_timestamp as u64)?;
+
     let config_loader = ConfigAccountLoader::try_from(config_info)?;
     let config = config_loader.load()?;
 
@@ -52,7 +55,12 @@ pub fn process_initialize_virtual_pool_with_token2022<'info>(
         PoolError::InvalidTokenType
     );
 
-    let InitializePoolParameters { name, symbol, uri } = params;
+    let InitializePoolParameters {
+        name,
+        symbol,
+        uri,
+        deadline_timestamp,
+    } = params;
 
     // initialize metadata
     let cpi_accounts = TokenMetadataInitialize {
@@ -171,5 +179,6 @@ pub fn process_initialize_virtual_pool_with_token2022<'info>(
         activation_point,
         initial_base_supply,
         sqrt_start_price: config.sqrt_start_price,
+        deadline_timestamp,
     })
 }

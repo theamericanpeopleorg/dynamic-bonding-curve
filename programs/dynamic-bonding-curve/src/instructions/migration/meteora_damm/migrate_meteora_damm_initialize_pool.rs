@@ -212,22 +212,35 @@ impl<'info> MigrateMeteoraDammCtx<'info> {
 pub fn handle_migrate_meteora_damm<'info>(
     ctx: Context<'info, MigrateMeteoraDammCtx<'info>>,
 ) -> Result<()> {
+    let current_timestamp = Clock::get()?.unix_timestamp as u64;
     let config = ctx.accounts.config.load()?;
     ctx.accounts
         .validate_config_key(config.migration_fee_option)?;
 
     let mut virtual_pool = ctx.accounts.virtual_pool.load_mut()?;
+    let migration_progress = virtual_pool.get_migration_progress()?;
+    let locked_vesting_params = config.locked_vesting_config.to_locked_vesting_params();
+    let deadline_reached = virtual_pool.is_deadline_reached(current_timestamp);
+    let threshold_reached = virtual_pool.is_curve_complete(config.migration_quote_threshold);
+    let can_migrate_after_deadline = migration_progress == MigrationProgress::PreBondingCurve
+        && deadline_reached
+        && !locked_vesting_params.has_vesting();
+
     require!(
-        virtual_pool.get_migration_progress()? == MigrationProgress::LockedVesting,
+        migration_progress == MigrationProgress::LockedVesting || can_migrate_after_deadline,
         PoolError::NotPermitToDoThisAction
     );
 
     let mut migration_metadata = ctx.accounts.migration_metadata.load_mut()?;
 
     require!(
-        virtual_pool.is_curve_complete(config.migration_quote_threshold),
+        threshold_reached || deadline_reached,
         PoolError::PoolIsIncompleted
     );
+
+    if virtual_pool.finish_curve_timestamp == 0 && can_migrate_after_deadline {
+        virtual_pool.finish_curve_timestamp = virtual_pool.deadline_timestamp;
+    }
 
     let migration_option = MigrationOption::try_from(config.migration_option)
         .map_err(|_| PoolError::InvalidMigrationOption)?;
@@ -236,19 +249,44 @@ pub fn handle_migrate_meteora_damm<'info>(
         PoolError::InvalidMigrationOption
     );
 
+    let migration_sqrt_price = if threshold_reached {
+        config.migration_sqrt_price
+    } else {
+        virtual_pool.sqrt_price
+    };
     let liquidity_handler = Box::new(CompoundingLiquidity {
-        migration_sqrt_price: config.migration_sqrt_price,
+        migration_sqrt_price,
     });
 
     let initial_base_vault_amount = ctx.accounts.base_vault.amount;
     let protocol_and_partner_base_fee = virtual_pool.get_protocol_and_trading_base_fee()?;
     let (included_protocol_fee_migration_base_amount, included_protocol_fee_migration_quote_amount) =
-        liquidity_handler.get_included_protocol_fee_migration_amounts_2(
-            config.migration_base_threshold,
-            config.migration_quote_threshold,
-            config.migration_fee_percentage,
-            initial_base_vault_amount.safe_sub(protocol_and_partner_base_fee)?,
-        )?;
+        if threshold_reached {
+            liquidity_handler.get_included_protocol_fee_migration_amounts_2(
+                config.migration_base_threshold,
+                config.migration_quote_threshold,
+                config.migration_fee_percentage,
+                initial_base_vault_amount.safe_sub(protocol_and_partner_base_fee)?,
+            )?
+        } else {
+            require!(
+                virtual_pool.quote_reserve > 0,
+                PoolError::InsufficientLiquidityForMigration
+            );
+            let migration_amounts = liquidity_handler
+                .get_included_protocol_fee_migration_amounts_1(
+                    virtual_pool.quote_reserve,
+                    config.migration_fee_percentage,
+                )?;
+            require!(
+                initial_base_vault_amount.safe_sub(protocol_and_partner_base_fee)?
+                    >= migration_amounts.0
+                    && migration_amounts.0 > 0
+                    && migration_amounts.1 > 0,
+                PoolError::InsufficientLiquidityForMigration
+            );
+            migration_amounts
+        };
 
     let (protocol_migration_base_fee, protocol_migration_quote_fee) = liquidity_handler
         .get_migration_protocol_fees(
