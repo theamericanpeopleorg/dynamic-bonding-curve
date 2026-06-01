@@ -320,7 +320,7 @@ pub fn handle_swap_wrapper<'c: 'info, 'info>(
         current_timestamp,
     });
 
-    if pool.is_total_quote_threshold_reached(config.migration_quote_threshold) {
+    if pool.is_curve_complete(config.migration_quote_threshold) {
         ctx.accounts.base_vault.reload()?;
         // validate if base reserve is enough token for migration
         let base_vault_balance = ctx.accounts.base_vault.amount;

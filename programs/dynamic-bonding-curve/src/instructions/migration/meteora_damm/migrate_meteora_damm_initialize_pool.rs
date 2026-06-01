@@ -221,8 +221,7 @@ pub fn handle_migrate_meteora_damm<'info>(
     let migration_progress = virtual_pool.get_migration_progress()?;
     let locked_vesting_params = config.locked_vesting_config.to_locked_vesting_params();
     let deadline_reached = virtual_pool.is_deadline_reached(current_timestamp);
-    let sale_complete =
-        virtual_pool.is_total_quote_threshold_reached(config.migration_quote_threshold);
+    let sale_complete = virtual_pool.is_curve_complete(config.migration_quote_threshold);
     let can_migrate_after_deadline = migration_progress == MigrationProgress::PreBondingCurve
         && deadline_reached
         && !locked_vesting_params.has_vesting();
@@ -257,18 +256,14 @@ pub fn handle_migrate_meteora_damm<'info>(
 
     let initial_base_vault_amount = ctx.accounts.base_vault.amount;
     let protocol_and_partner_base_fee = virtual_pool.get_protocol_and_trading_base_fee()?;
-    let (included_protocol_fee_migration_base_amount, included_protocol_fee_migration_quote_amount) =
-    {
+    let (included_protocol_fee_migration_base_amount, included_protocol_fee_migration_quote_amount) = {
         let migration_quote_amount = virtual_pool.get_effective_migration_quote_amount(&config);
         require!(
             migration_quote_amount > 0,
             PoolError::InsufficientLiquidityForMigration
         );
-        let migration_amounts =
-            liquidity_handler.get_included_protocol_fee_migration_amounts_1(
-                migration_quote_amount,
-                0,
-            )?;
+        let migration_amounts = liquidity_handler
+            .get_included_protocol_fee_migration_amounts_1(migration_quote_amount, 0)?;
         require!(
             initial_base_vault_amount.safe_sub(protocol_and_partner_base_fee)?
                 >= migration_amounts.0

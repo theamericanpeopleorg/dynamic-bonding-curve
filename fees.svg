@@ -1,0 +1,152 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1800" height="1280" viewBox="0 0 1800 1280">
+  <defs>
+    <style>
+      .bg { fill: #f8fafc; }
+      .title { font: 700 40px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #0f172a; }
+      .subtitle { font: 500 21px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #475569; }
+      .section { font: 700 24px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #0f172a; }
+      .label { font: 700 22px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #0f172a; }
+      .small { font: 500 18px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #334155; }
+      .tiny { font: 500 16px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; fill: #475569; }
+      .box { fill: #ffffff; stroke: #cbd5e1; stroke-width: 2; rx: 8; }
+      .blue { fill: #eef6ff; stroke: #60a5fa; }
+      .green { fill: #ecfdf5; stroke: #34d399; }
+      .amber { fill: #fffbeb; stroke: #f59e0b; }
+      .red { fill: #fff1f2; stroke: #fb7185; }
+      .purple { fill: #f5f3ff; stroke: #a78bfa; }
+      .gray { fill: #f1f5f9; stroke: #94a3b8; }
+      .line { stroke: #64748b; stroke-width: 3; fill: none; marker-end: url(#arrow); }
+      .dashed { stroke-dasharray: 8 8; }
+      .zero { fill: #ffffff; stroke: #f43f5e; stroke-width: 2; rx: 8; }
+    </style>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M2,2 L10,6 L2,10 Z" fill="#64748b" />
+    </marker>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="1800" height="1280" />
+  <text class="title" x="70" y="72">DBC Fee and Reserve Flow</text>
+  <text class="subtitle" x="70" y="108">Current branch: buys only, virtual buys do not transfer USDC, migration uses capped real quote, migration fees are zero.</text>
+
+  <rect class="box blue" x="70" y="160" width="360" height="130" />
+  <text class="label" x="94" y="205">Config Creation</text>
+  <text class="small" x="94" y="238">fee_claimer = partner wallet</text>
+  <text class="small" x="94" y="264">creator = pool creator</text>
+
+  <rect class="box gray" x="520" y="150" width="420" height="150" />
+  <text class="label" x="544" y="195">Pool Setup Constants</text>
+  <text class="small" x="544" y="228">creator_trading_fee_percentage = 0</text>
+  <text class="small" x="544" y="254">migration_fee_percentage = 0</text>
+  <text class="small" x="544" y="280">PROTOCOL_LIQUIDITY_MIGRATION_FEE_BPS = 0</text>
+
+  <rect class="box amber" x="1030" y="160" width="360" height="130" />
+  <text class="label" x="1054" y="205">Pool Creation Fee</text>
+  <text class="small" x="1054" y="238">Optional SOL fee at pool init</text>
+  <text class="small" x="1054" y="264">0 disables this branch</text>
+
+  <path class="line" d="M430 225 L520 225" />
+  <path class="line" d="M940 225 L1030 225" />
+
+  <rect class="box" x="1460" y="120" width="270" height="80" />
+  <text class="label" x="1482" y="155">Protocol Treasury</text>
+  <text class="small" x="1482" y="181">10% creation fee</text>
+
+  <rect class="box green" x="1460" y="240" width="270" height="80" />
+  <text class="label" x="1482" y="275">Fee Claimer</text>
+  <text class="small" x="1482" y="301">90% creation fee</text>
+
+  <path class="line" d="M1390 205 L1460 160" />
+  <path class="line" d="M1390 250 L1460 280" />
+
+  <text class="section" x="70" y="370">Swap Phase</text>
+
+  <rect class="box green" x="70" y="400" width="360" height="130" />
+  <text class="label" x="94" y="445">Real swap2 buy</text>
+  <text class="small" x="94" y="478">USDC transfers into quote_vault</text>
+  <text class="small" x="94" y="504">quote_reserve increments</text>
+
+  <rect class="box purple" x="70" y="570" width="360" height="130" />
+  <text class="label" x="94" y="615">virtual_swap2 buy</text>
+  <text class="small" x="94" y="648">No USDC transfer</text>
+  <text class="small" x="94" y="674">virtual_quote_reserve increments</text>
+
+  <rect class="box blue" x="520" y="450" width="380" height="200" />
+  <text class="label" x="544" y="492">DBC Trading Fee Calc</text>
+  <text class="small" x="544" y="526">pool_fees controls fee rate</text>
+  <text class="small" x="544" y="552">QuoteToken: fee in USDC</text>
+  <text class="small" x="544" y="578">OutputToken: fee in base token</text>
+  <text class="tiny" x="544" y="614">If pool_fees are zero, all buckets below are zero.</text>
+
+  <path class="line" d="M430 465 L520 515" />
+  <path class="line dashed" d="M430 635 L520 585" />
+
+  <rect class="box" x="990" y="390" width="330" height="100" />
+  <text class="label" x="1014" y="428">Protocol Fee Bucket</text>
+  <text class="small" x="1014" y="462">20% of DBC trading fee</text>
+
+  <rect class="box green" x="990" y="530" width="330" height="100" />
+  <text class="label" x="1014" y="568">Partner Fee Bucket</text>
+  <text class="small" x="1014" y="602">100% of trading remainder</text>
+
+  <rect class="zero" x="990" y="670" width="330" height="100" />
+  <text class="label" x="1014" y="708">Creator Fee Bucket</text>
+  <text class="small" x="1014" y="742">0% on this branch</text>
+
+  <rect class="box amber" x="1420" y="390" width="310" height="100" />
+  <text class="label" x="1444" y="428">Referral / Host</text>
+  <text class="small" x="1444" y="462">Optional immediate payout</text>
+
+  <path class="line" d="M900 510 L990 440" />
+  <path class="line" d="M900 550 L990 580" />
+  <path class="line" d="M900 590 L990 720" />
+  <path class="line" d="M1320 440 L1420 440" />
+
+  <text class="section" x="70" y="850">Migration and Surplus</text>
+
+  <rect class="box blue" x="70" y="890" width="390" height="150" />
+  <text class="label" x="94" y="932">Sale Completion</text>
+  <text class="small" x="94" y="966">total quote = real + virtual</text>
+  <text class="small" x="94" y="992">or deadline reached</text>
+  <text class="tiny" x="94" y="1024">virtual quote is never in the token vault</text>
+
+  <rect class="box green" x="550" y="890" width="430" height="150" />
+  <text class="label" x="574" y="932">Migration Quote Used</text>
+  <text class="small" x="574" y="966">min(real quote_reserve, cap)</text>
+  <text class="small" x="574" y="992">paired with base at pool.sqrt_price</text>
+  <text class="tiny" x="574" y="1024">seeds the migrated AMM</text>
+
+  <rect class="zero" x="1070" y="870" width="330" height="100" />
+  <text class="label" x="1094" y="908">Migration Fee</text>
+  <text class="small" x="1094" y="942">partner/creator fee = 0</text>
+
+  <rect class="zero" x="1070" y="1000" width="330" height="100" />
+  <text class="label" x="1094" y="1038">Protocol Liquidity Fee</text>
+  <text class="small" x="1094" y="1072">0 bps skim</text>
+
+  <rect class="box amber" x="70" y="1110" width="510" height="100" />
+  <text class="label" x="94" y="1148">Real Quote Surplus</text>
+  <text class="small" x="94" y="1182">quote_reserve - min(quote_reserve, cap)</text>
+
+  <rect class="box green" x="690" y="1110" width="390" height="100" />
+  <text class="label" x="714" y="1148">partner_withdraw_surplus</text>
+  <text class="small" x="714" y="1182">fee_claimer gets all surplus</text>
+
+  <rect class="zero" x="1190" y="1110" width="300" height="100" />
+  <text class="label" x="1214" y="1148">Creator / Protocol</text>
+  <text class="small" x="1214" y="1182">0 surplus in intended config</text>
+
+  <path class="line" d="M460 965 L550 965" />
+  <path class="line" d="M980 945 L1070 920" />
+  <path class="line" d="M980 990 L1070 1050" />
+  <path class="line" d="M460 1015 L280 1110" />
+  <path class="line" d="M580 1160 L690 1160" />
+  <path class="line" d="M1080 1160 L1190 1160" />
+
+  <rect class="box gray" x="1420" y="870" width="310" height="230" />
+  <text class="label" x="1444" y="910">Net Intended Flow</text>
+  <text class="small" x="1444" y="946">25k cap + 100k real quote:</text>
+  <text class="small" x="1444" y="982">25k seeds AMM</text>
+  <text class="small" x="1444" y="1018">75k surplus remains</text>
+  <text class="small" x="1444" y="1054">fee_claimer withdraws 75k</text>
+  <text class="small" x="1444" y="1086">virtual quote sweeps nothing</text>
+</svg>
