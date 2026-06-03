@@ -1,16 +1,19 @@
 use crate::{
     const_pda,
     state::{Operator, PoolConfig, VirtualPool},
-    token::{get_token_program_from_flag, transfer_token_from_pool_authority, validate_ata_token},
+    token::{
+        get_token_program_from_flag, get_token_program_from_pool_type,
+        transfer_token_from_pool_authority, validate_ata_token,
+    },
     treasury, PoolError,
 };
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::sysvar::instructions::ID as SYSVAR_IX_ID;
 use anchor_spl::{
     associated_token::get_associated_token_address_with_program_id,
     token_interface::{Mint, TokenAccount, TokenInterface},
 };
 use protocol_zap::{constants::MINTS_DISALLOWED_TO_ZAP_OUT, utils::validate_zap_out_to_treasury};
+use solana_instructions_sysvar::ID as SYSVAR_IX_ID;
 
 /// Accounts for zap protocol fees
 #[derive(Accounts)]
@@ -46,7 +49,7 @@ pub struct ZapProtocolFee<'info> {
     #[account(
         address = SYSVAR_IX_ID,
     )]
-    pub sysvar_instructions: AccountInfo<'info>,
+    pub sysvar_instructions: UncheckedAccount<'info>,
 }
 
 fn validate_accounts_and_return_withdraw_direction<'info>(
@@ -87,9 +90,11 @@ fn validate_accounts_and_return_withdraw_direction<'info>(
 // Rules:
 // 1. If the token mint is SOL or USDC, then must withdraw to treasury using `claim_protocol_fee` endpoint. No zap out allowed.
 // 2. If the token mint is not SOL or USDC, operator require to zap out to SOL or USDC or either one of the token of the pool
+// note: max_amount is just a cap of total trading fee and migration fee. if pool has surplus in quote token, we could withdraw more than max_amount
 pub fn handle_zap_protocol_fee(ctx: Context<ZapProtocolFee>, max_amount: u64) -> Result<()> {
     let config = ctx.accounts.config.load()?;
     let mut pool = ctx.accounts.pool.load_mut()?;
+
     let is_withdrawing_base = validate_accounts_and_return_withdraw_direction(
         &config,
         &pool,
@@ -119,7 +124,7 @@ pub fn handle_zap_protocol_fee(ctx: Context<ZapProtocolFee>, max_amount: u64) ->
         let treasury_token_base_address = get_associated_token_address_with_program_id(
             &treasury::ID,
             &pool.base_mint,
-            &get_token_program_from_flag(pool.pool_type)?,
+            &get_token_program_from_pool_type(pool.pool_type)?,
         );
         (quote_amount, treasury_token_base_address)
     };
@@ -155,6 +160,7 @@ pub fn handle_zap_protocol_fee(ctx: Context<ZapProtocolFee>, max_amount: u64) ->
         receiver_token_ai,
         &ctx.accounts.token_program,
         amount,
+        None,
     )?;
 
     Ok(())

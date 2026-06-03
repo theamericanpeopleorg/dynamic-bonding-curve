@@ -32,7 +32,7 @@ import {
 } from "./utils";
 import { VirtualCurveProgram } from "./utils/types";
 
-import { BN } from "@coral-xyz/anchor";
+import { BN } from "@anchor-lang/core";
 import { expect } from "chai";
 import { LiteSVM, TransactionMetadata } from "litesvm";
 import { wrapSOL } from "./utils/token";
@@ -219,7 +219,7 @@ async function createSwapIx(
       quoteMint,
       tokenBaseProgram: TOKEN_PROGRAM_ID,
       tokenQuoteProgram: TOKEN_PROGRAM_ID,
-      referralTokenAccount: program.programId,
+      referralTokenAccount: null,
     })
     .remainingAccounts(remainingAccounts)
     .preInstructions([createInputAtaIx, createOutputAtaIx])

@@ -1,21 +1,21 @@
 use anchor_lang::prelude::*;
 
 use crate::{
-    state::{MigrationOption, MigrationProgress, PoolConfig, VirtualPool},
-    EvtUpdatePoolCreator, MeteoraDammMigrationMetadata, PoolError,
+    event::EvtUpdatePoolCreator,
+    state::{MigrationOption, MigrationProgress},
+    ConfigAccountLoader, MeteoraDammMigrationMetadata, PoolAccountLoader, PoolError,
 };
 
 /// Accounts for transfer pool creator
 #[event_cpi]
 #[derive(Accounts)]
 pub struct TransferPoolCreatorCtx<'info> {
-    #[account(
-        mut,
-        has_one = config,
-    )]
-    pub virtual_pool: AccountLoader<'info, VirtualPool>,
+    /// CHECK: pool account
+    #[account(mut)]
+    pub virtual_pool: UncheckedAccount<'info>,
 
-    pub config: AccountLoader<'info, PoolConfig>,
+    /// CHECK: config account
+    pub config: UncheckedAccount<'info>,
 
     pub creator: Signer<'info>,
 
@@ -26,13 +26,20 @@ pub struct TransferPoolCreatorCtx<'info> {
     pub new_creator: UncheckedAccount<'info>,
 }
 
-pub fn handle_transfer_pool_creator<'c: 'info, 'info>(
-    ctx: Context<'_, '_, 'c, 'info, TransferPoolCreatorCtx>,
+pub fn handle_transfer_pool_creator<'info>(
+    ctx: Context<'info, TransferPoolCreatorCtx>,
 ) -> Result<()> {
-    let mut pool = ctx.accounts.virtual_pool.load_mut()?;
+    let pool_loader = PoolAccountLoader::try_from(&ctx.accounts.virtual_pool)?;
+    let mut pool = pool_loader.load_mut()?;
+
+    require!(
+        pool.config.eq(&ctx.accounts.config.key()),
+        ErrorCode::ConstraintHasOne
+    );
 
     let migration_progress = pool.get_migration_progress()?;
-    let config = ctx.accounts.config.load()?;
+    let config_loader = ConfigAccountLoader::try_from(&ctx.accounts.config)?;
+    let config = config_loader.load()?;
     match migration_progress {
         MigrationProgress::PreBondingCurve => {
             // always work
