@@ -159,7 +159,7 @@ export async function claimProtocolFee(
   sendTransactionMaybeThrow(svm, transaction, [operator]);
 }
 
-const PARTNER_AND_CREATOR_SURPLUS_SHARE = 80;
+const PARTNER_AND_CREATOR_SURPLUS_SHARE = 100;
 
 function getClaimableProtocolAmount(
   pool: Pool,

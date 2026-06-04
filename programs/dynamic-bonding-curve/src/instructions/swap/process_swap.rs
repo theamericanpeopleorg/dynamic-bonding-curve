@@ -6,6 +6,7 @@ use crate::instruction::InitializeVirtualPoolWithToken2022TransferHook;
 use crate::instruction::Swap as SwapInstruction;
 use crate::instruction::Swap2 as Swap2Instruction;
 use crate::instruction::Swap2WithTransferHook as Swap2WithTransferHookInstruction;
+use crate::instruction::VirtualSwap2 as VirtualSwap2Instruction;
 use crate::math::safe_math::SafeMath;
 use crate::state::MigrationProgress;
 use crate::state::SwapResult2;
@@ -73,6 +74,7 @@ pub enum SwapMode {
 pub struct SwapEventData {
     pub trade_direction: TradeDirection,
     pub has_referral: bool,
+    pub is_virtual: bool,
     pub swap_parameters: SwapParameters2,
     pub swap_result_2: SwapResult2,
     pub swap_in_parameters: SwapParameters,
@@ -104,6 +106,7 @@ pub fn process_swap<'a: 'info, 'info>(
     referral_token_account: &'a Option<Box<InterfaceAccount<'info, TokenAccount>>>,
     remaining_accounts: &'a [AccountInfo<'info>],
     params: SwapParameters2,
+    is_virtual: bool,
     transfer_hook_accounts_info: TransferHookAccountsInfo,
 ) -> Result<SwapEventData> {
     let mut pool = pool_loader.load_mut()?;
@@ -142,8 +145,119 @@ pub fn process_swap<'a: 'info, 'info>(
         trade_direction == TradeDirection::QuoteToBase,
         PoolError::SellDisabled
     );
+    if is_virtual {
+        require!(
+            input_token_account.mint == quote_mint.key(),
+            PoolError::InvalidInput
+        );
+        require!(referral_token_account.is_none(), PoolError::InvalidInput);
+    }
 
-    // Reborrow base_vault as immutable to match quote_vault's type in the match
+    require!(amount_0 > 0, PoolError::AmountIsZero);
+
+    let transfer_hook_account_count = transfer_hook_accounts_info
+        .slices
+        .iter()
+        .map(|s| s.length as usize)
+        .sum();
+    let extra_remaining_account_count = remaining_accounts
+        .len()
+        .safe_sub(transfer_hook_account_count)?;
+    require!(
+        extra_remaining_account_count <= 1,
+        PoolError::InvalidRemainingAccountsLength
+    );
+    let instruction_sysvar_account_info = if extra_remaining_account_count == 1 {
+        let account = &remaining_accounts[0];
+        require!(
+            account.key.eq(&instructions_sysvar::ID),
+            PoolError::InvalidInstructionsSysvar
+        );
+        Some(account)
+    } else {
+        None
+    };
+
+    let has_referral = !is_virtual && referral_token_account.is_some();
+
+    let current_point = get_current_point(config.activation_type)?;
+
+    // another validation to prevent snipers to craft multiple swap instructions in 1 tx
+    // (if we dont do this, they are able to concat 16 swap instructions in 1 tx)
+    let rate_limiter = config.pool_fees.base_fee.get_fee_rate_limiter();
+    if let Ok(rate_limiter) = &rate_limiter {
+        if rate_limiter.is_rate_limiter_applied(
+            current_point,
+            pool.activation_point,
+            trade_direction,
+        )? {
+            validate_single_swap_instruction(&pool_loader.key(), instruction_sysvar_account_info)?;
+        }
+    }
+
+    let eligible_for_first_swap_with_min_fee = config.is_first_swap_with_min_fee_enabled()
+        && pool.is_first_swap()
+        && validate_contain_initialize_pool_ix_and_no_cpi(
+            &pool_loader.key(),
+            has_referral,
+            instruction_sysvar_account_info,
+        )
+        .is_ok();
+
+    // update for dynamic fee reference
+    let current_timestamp = Clock::get()?.unix_timestamp as u64;
+
+    // validate if the sale is already complete
+    require!(
+        !pool.is_sale_complete(config.migration_quote_threshold, current_timestamp),
+        PoolError::PoolIsCompleted
+    );
+
+    pool.update_pre_swap(&config, current_timestamp)?;
+
+    let fee_mode = FeeMode::get_fee_mode(config.collect_fee_mode, trade_direction, has_referral)?;
+
+    let process_swap_params = ProcessSwapParams {
+        pool: &mut *pool,
+        config: &config,
+        fee_mode: &fee_mode,
+        trade_direction,
+        current_point,
+        amount_0,
+        amount_1,
+        eligible_for_first_swap_with_min_fee,
+    };
+
+    let ProcessSwapResult {
+        swap_result: swap_result_2,
+        swap_in_parameters,
+    } = match swap_mode {
+        SwapMode::ExactIn => process_swap_exact_in(process_swap_params)?,
+        SwapMode::PartialFill => process_swap_partial_fill(process_swap_params)?,
+        SwapMode::ExactOut => process_swap_exact_out(process_swap_params)?,
+    };
+
+    let swap_result = swap_result_2.get_swap_result();
+    if is_virtual {
+        pool.apply_virtual_swap_result(&config, &swap_result, &fee_mode, current_timestamp)?;
+    } else {
+        pool.apply_swap_result(
+            &config,
+            &swap_result,
+            &fee_mode,
+            trade_direction,
+            current_timestamp,
+        )?;
+    }
+
+    let migration_quote_threshold = config.migration_quote_threshold;
+    let migration_base_threshold = config.migration_base_threshold;
+    let locked_vesting_params = config.locked_vesting_config.to_locked_vesting_params();
+
+    // drop pool & config since transfer hook program may borrow the account
+    drop(pool);
+    drop(config);
+
     let base_vault_ref: &Box<InterfaceAccount<'info, TokenAccount>> = base_vault;
     let (
         token_in_mint,
@@ -171,107 +285,6 @@ pub fn process_swap<'a: 'info, 'info>(
         ),
     };
 
-    require!(amount_0 > 0, PoolError::AmountIsZero);
-
-    let transfer_hook_account_count = transfer_hook_accounts_info
-        .slices
-        .iter()
-        .map(|s| s.length as usize)
-        .sum();
-    let extra_remaining_account_count = remaining_accounts
-        .len()
-        .safe_sub(transfer_hook_account_count)?;
-    require!(
-        extra_remaining_account_count <= 1,
-        PoolError::InvalidRemainingAccountsLength
-    );
-    let instruction_sysvar_account_info = if extra_remaining_account_count == 1 {
-        let account = &remaining_accounts[0];
-        require!(
-            account.key.eq(&instructions_sysvar::ID),
-            PoolError::InvalidInstructionsSysvar
-        );
-        Some(account)
-    } else {
-        None
-    };
-
-    let has_referral = referral_token_account.is_some();
-
-    let current_point = get_current_point(config.activation_type)?;
-
-    // another validation to prevent snipers to craft multiple swap instructions in 1 tx
-    // (if we dont do this, they are able to concat 16 swap instructions in 1 tx)
-    let rate_limiter = config.pool_fees.base_fee.get_fee_rate_limiter();
-    if let Ok(rate_limiter) = &rate_limiter {
-        if rate_limiter.is_rate_limiter_applied(
-            current_point,
-            pool.activation_point,
-            trade_direction,
-        )? {
-            validate_single_swap_instruction(&pool_loader.key(), instruction_sysvar_account_info)?;
-        }
-    }
-
-    let eligible_for_first_swap_with_min_fee = config.is_first_swap_with_min_fee_enabled()
-        && pool.is_first_swap()
-        && validate_contain_initialize_pool_ix_and_no_cpi(
-            &pool_loader.key(),
-            referral_token_account,
-            instruction_sysvar_account_info,
-        )
-        .is_ok();
-
-    // update for dynamic fee reference
-    let current_timestamp = Clock::get()?.unix_timestamp as u64;
-
-    // validate if the sale is already complete
-    require!(
-        !pool.is_sale_complete(config.migration_quote_threshold, current_timestamp),
-        PoolError::PoolIsCompleted
-    );
-
-    pool.update_pre_swap(&config, current_timestamp)?;
-
-    let fee_mode = &FeeMode::get_fee_mode(config.collect_fee_mode, trade_direction, has_referral)?;
-
-    let process_swap_params = ProcessSwapParams {
-        pool: &mut *pool,
-        config: &config,
-        fee_mode,
-        trade_direction,
-        current_point,
-        amount_0,
-        amount_1,
-        eligible_for_first_swap_with_min_fee,
-    };
-
-    let ProcessSwapResult {
-        swap_result: swap_result_2,
-        swap_in_parameters,
-    } = match swap_mode {
-        SwapMode::ExactIn => process_swap_exact_in(process_swap_params)?,
-        SwapMode::PartialFill => process_swap_partial_fill(process_swap_params)?,
-        SwapMode::ExactOut => process_swap_exact_out(process_swap_params)?,
-    };
-
-    let swap_result = swap_result_2.get_swap_result();
-    pool.apply_swap_result(
-        &config,
-        &swap_result,
-        fee_mode,
-        trade_direction,
-        current_timestamp,
-    )?;
-
-    let migration_quote_threshold = config.migration_quote_threshold;
-    let migration_base_threshold = config.migration_base_threshold;
-    let locked_vesting_params = config.locked_vesting_config.to_locked_vesting_params();
-
-    // drop pool & config since transfer hook program may borrow the account
-    drop(pool);
-    drop(config);
-
     let mut remaining_accounts = &remaining_accounts[extra_remaining_account_count..];
     let parsed_transfer_hook_accounts = parse_transfer_hook_accounts(
         &mut remaining_accounts,
@@ -288,16 +301,18 @@ pub fn process_swap<'a: 'info, 'info>(
         TradeDirection::QuoteToBase => (None, transfer_hook_base_accounts),
     };
 
-    // send to reserve
-    transfer_token_from_user(
-        payer,
-        token_in_mint,
-        input_token_account,
-        input_vault_account,
-        input_program,
-        swap_result_2.included_fee_input_amount,
-        transfer_hook_in,
-    )?;
+    if !is_virtual {
+        // send to reserve
+        transfer_token_from_user(
+            payer,
+            token_in_mint,
+            input_token_account,
+            input_vault_account,
+            input_program,
+            swap_result_2.included_fee_input_amount,
+            transfer_hook_in,
+        )?;
+    }
 
     // send to user
     transfer_token_from_pool_authority(
@@ -311,30 +326,32 @@ pub fn process_swap<'a: 'info, 'info>(
     )?;
 
     // send to referral
-    if let Some(referral_token_account) = referral_token_account.as_ref() {
-        if swap_result.referral_fee > 0 {
-            if fee_mode.fees_on_base_token {
-                let transfer_hook_base_referral_accounts =
-                    parsed_transfer_hook_accounts.transfer_hook_base_referral;
-                transfer_token_from_pool_authority(
-                    pool_authority.to_account_info(),
-                    base_mint,
-                    base_vault_ref,
-                    referral_token_account.to_account_info(),
-                    token_base_program,
-                    swap_result.referral_fee,
-                    transfer_hook_base_referral_accounts,
-                )?;
-            } else {
-                transfer_token_from_pool_authority(
-                    pool_authority.to_account_info(),
-                    quote_mint,
-                    quote_vault,
-                    referral_token_account.to_account_info(),
-                    token_quote_program,
-                    swap_result.referral_fee,
-                    None,
-                )?;
+    if !is_virtual {
+        if let Some(referral_token_account) = referral_token_account.as_ref() {
+            if swap_result.referral_fee > 0 {
+                if fee_mode.fees_on_base_token {
+                    let transfer_hook_base_referral_accounts =
+                        parsed_transfer_hook_accounts.transfer_hook_base_referral;
+                    transfer_token_from_pool_authority(
+                        pool_authority.to_account_info(),
+                        base_mint,
+                        base_vault_ref,
+                        referral_token_account.to_account_info(),
+                        token_base_program,
+                        swap_result.referral_fee,
+                        transfer_hook_base_referral_accounts,
+                    )?;
+                } else {
+                    transfer_token_from_pool_authority(
+                        pool_authority.to_account_info(),
+                        quote_mint,
+                        quote_vault,
+                        referral_token_account.to_account_info(),
+                        token_quote_program,
+                        swap_result.referral_fee,
+                        None,
+                    )?;
+                }
             }
         }
     }
@@ -369,7 +386,7 @@ pub fn process_swap<'a: 'info, 'info>(
 
         Some(CurveCompleteEventData {
             base_reserve: pool.base_reserve,
-            quote_reserve: pool.quote_reserve,
+            quote_reserve: pool.total_quote_reserve(),
         })
     } else {
         None
@@ -378,10 +395,11 @@ pub fn process_swap<'a: 'info, 'info>(
     Ok(SwapEventData {
         trade_direction,
         has_referral,
+        is_virtual,
         swap_parameters: params,
         swap_result_2,
         swap_in_parameters,
-        quote_reserve_amount: pool.quote_reserve,
+        quote_reserve_amount: pool.total_quote_reserve(),
         migration_threshold: migration_quote_threshold,
         current_timestamp,
         curve_complete,
@@ -492,6 +510,7 @@ fn is_instruction_include_pool_swap(instruction: &Instruction, pool: &Pubkey) ->
     if instruction_discriminator.eq(SwapInstruction::DISCRIMINATOR)
         || instruction_discriminator.eq(Swap2Instruction::DISCRIMINATOR)
         || instruction_discriminator.eq(Swap2WithTransferHookInstruction::DISCRIMINATOR)
+        || instruction_discriminator.eq(VirtualSwap2Instruction::DISCRIMINATOR)
     {
         return instruction.accounts[2].pubkey.eq(pool);
     }
@@ -501,15 +520,12 @@ fn is_instruction_include_pool_swap(instruction: &Instruction, pool: &Pubkey) ->
 // Note: initialize_pool ix must be before swap ix and at the top level (no cpi)
 pub fn validate_contain_initialize_pool_ix_and_no_cpi<'info>(
     pool: &Pubkey,
-    referral_token_account: &Option<Box<InterfaceAccount<'info, TokenAccount>>>,
+    has_referral: bool,
     instruction_sysvar_account_info: Option<&AccountInfo<'info>>,
 ) -> Result<()> {
     // just use a random error
     // not allow user to bypass referral fee
-    require!(
-        referral_token_account.is_none(),
-        PoolError::UndeterminedError
-    );
+    require!(!has_referral, PoolError::UndeterminedError);
 
     let instruction_sysvar_account_info =
         instruction_sysvar_account_info.ok_or_else(|| PoolError::UndeterminedError)?;

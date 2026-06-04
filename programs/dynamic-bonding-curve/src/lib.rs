@@ -244,6 +244,7 @@ pub mod dynamic_bonding_curve {
                 amount_1: params.minimum_amount_out,
                 swap_mode: SwapMode::ExactIn.into(),
             },
+            false,
         )
     }
 
@@ -252,7 +253,7 @@ pub mod dynamic_bonding_curve {
         ctx: Context<'info, SwapCtx<'info>>,
         params: SwapParameters2,
     ) -> Result<()> {
-        instructions::handle_swap_wrapper(ctx, params)
+        instructions::handle_swap_wrapper(ctx, params, false)
     }
 
     /// Accepts: TransferHookPool only.
@@ -266,6 +267,15 @@ pub mod dynamic_bonding_curve {
             params,
             transfer_hook_accounts_info,
         )
+    }
+
+    /// Accepts: VirtualPool only.
+    #[access_control(is_virtual_swap_authority(&ctx.accounts.payer.key))]
+    pub fn virtual_swap2<'info>(
+        ctx: Context<'info, SwapCtx<'info>>,
+        params: SwapParameters2,
+    ) -> Result<()> {
+        instructions::handle_swap_wrapper(ctx, params, true)
     }
 
     /// PERMISSIONLESS FUNCTIONS ///

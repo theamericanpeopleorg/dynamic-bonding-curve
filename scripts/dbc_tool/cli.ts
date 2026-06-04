@@ -23,7 +23,7 @@ export function usage() {
   bun scripts/dbc_tool/dbc_tool.ts buy <POOL_PUBKEY> <BASE_AMOUNT> [--rpc-url <URL>] [--raw]
   bun scripts/dbc_tool/dbc_tool.ts buy <POOL_PUBKEY> <QUOTE_AMOUNT> --partial [--min-base-out <BASE_AMOUNT>] [--rpc-url <URL>] [--raw]
   bun scripts/dbc_tool/dbc_tool.ts withdraw-leftover <POOL_PUBKEY> [--rpc-url <URL>]
-  bun scripts/dbc_tool/dbc_tool.ts withdraw-partner-migration-fee <POOL_PUBKEY> [--rpc-url <URL>]
+  bun scripts/dbc_tool/dbc_tool.ts withdraw-partner-migration-fee <POOL_PUBKEY> [--rpc-url <URL>] [--migration-fee-receiver <OWNER>]
 
 Environment:
   RPC_URL            Optional default RPC URL
@@ -115,6 +115,9 @@ export async function runCli() {
 
     const result = await withdrawPartnerMigrationFee(pool, {
       rpcUrl: args.rpcUrl,
+      migrationFeeReceiver: args.migrationFeeReceiver
+        ? new PublicKey(args.migrationFeeReceiver)
+        : undefined,
     });
     console.log(JSON.stringify(publicKeyResultToBase58(result), null, 2));
     return;
@@ -142,6 +145,7 @@ export function parseCliArgs(argv: string[]) {
   let rpcUrl: string | undefined;
   let quoteMint: string | undefined;
   let migrationFeePercentage: number | undefined;
+  let migrationFeeReceiver: string | undefined;
   let creatorMigrationFeePercentage: number | undefined;
   let baseMintKeypairPath: string | undefined;
   let deadlineTimestamp: string | undefined;
@@ -210,6 +214,21 @@ export function parseCliArgs(argv: string[]) {
       continue;
     }
 
+    if (arg === "--migration-fee-receiver") {
+      migrationFeeReceiver = argv[++i];
+      if (!migrationFeeReceiver) {
+        throw new Error(
+          "--migration-fee-receiver requires an owner public key"
+        );
+      }
+      continue;
+    }
+
+    if (arg.startsWith("--migration-fee-receiver=")) {
+      migrationFeeReceiver = arg.slice("--migration-fee-receiver=".length);
+      continue;
+    }
+
     if (arg === "--base-mint-keypair") {
       baseMintKeypairPath = argv[++i];
       if (!baseMintKeypairPath) {
@@ -272,6 +291,7 @@ export function parseCliArgs(argv: string[]) {
     command,
     creatorMigrationFeePercentage,
     deadlineTimestamp,
+    migrationFeeReceiver,
     migrationFeePercentage,
     minimumBaseAmountOut,
     partialFill,

@@ -89,19 +89,16 @@ pub fn handle_withdraw_migration_fee(
         ErrorCode::ConstraintHasOne
     );
 
-    let threshold_reached = pool.is_curve_complete(config.migration_quote_threshold);
+    let sale_complete = pool.is_curve_complete(config.migration_quote_threshold);
     let migration_progress = pool.get_migration_progress()?;
 
     // Deadline-completed pools can withdraw migration fees only after migration.
     require!(
-        threshold_reached || migration_progress == MigrationProgress::CreatedPool,
+        sale_complete || migration_progress == MigrationProgress::CreatedPool,
         PoolError::NotPermitToDoThisAction
     );
-    let effective_migration_quote_threshold = if threshold_reached {
-        config.migration_quote_threshold
-    } else {
-        pool.quote_reserve
-    };
+    let effective_migration_quote_threshold =
+        pool.effective_migration_quote_threshold(config.migration_quote_threshold);
     let MigrationFeeDistribution {
         creator_migration_fee,
         partner_migration_fee,

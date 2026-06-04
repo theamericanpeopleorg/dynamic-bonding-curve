@@ -54,6 +54,7 @@ export type KeeperOptions = {
   keypairPath?: string;
   statusIntervalMs?: number;
   withdrawLeftover?: boolean;
+  migrationFeeReceiver?: PublicKey;
 };
 
 export type RpcRetryInfo = {
@@ -92,6 +93,7 @@ export type KeeperResult = {
     | "failed";
   partnerMigrationFeeWithdrawSignature?: string;
   partnerFeeClaimer?: PublicKey;
+  migrationFeeReceiver?: PublicKey;
   partnerQuoteAccount?: PublicKey;
   partnerMigrationFeeWithdrawError?: string;
 };

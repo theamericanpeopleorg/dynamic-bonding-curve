@@ -386,13 +386,18 @@ impl ConfigParameters {
         self.pool_fees
             .validate(self.collect_fee_mode, activation_type)?;
 
-        // validate creator trading fee percentage
         require!(
-            self.creator_trading_fee_percentage <= 100,
+            self.creator_trading_fee_percentage == 0,
             PoolError::InvalidCreatorTradingFeePercentage
         );
 
         self.migration_fee.validate()?;
+        // Disable the partner/creator migration fee taken from the migration quote threshold.
+        // Protocol liquidity migration fee is configured separately.
+        require!(
+            self.migration_fee.fee_percentage == 0,
+            PoolError::InvalidMigratorFeePercentage
+        );
 
         // validate collect fee mode
         require!(

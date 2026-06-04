@@ -63,6 +63,7 @@ pub struct SwapCtx<'info> {
 pub fn handle_swap_wrapper<'info>(
     ctx: Context<'info, SwapCtx<'info>>,
     params: SwapParameters2,
+    is_virtual: bool,
 ) -> Result<()> {
     let pool_loader = PoolAccountLoader::try_from(&ctx.accounts.pool)?;
 
@@ -88,6 +89,7 @@ pub fn handle_swap_wrapper<'info>(
         &ctx.accounts.referral_token_account,
         ctx.remaining_accounts,
         params,
+        is_virtual,
         Default::default(),
     )?;
 
@@ -100,6 +102,7 @@ pub fn handle_swap_wrapper<'info>(
         swap_result: result.swap_result_2.get_swap_result(),
         amount_in: result.swap_result_2.included_fee_input_amount,
         current_timestamp: result.current_timestamp,
+        is_virtual: result.is_virtual,
     });
     emit_cpi!(EvtSwap2 {
         pool: ctx.accounts.pool.key(),
@@ -111,6 +114,7 @@ pub fn handle_swap_wrapper<'info>(
         quote_reserve_amount: result.quote_reserve_amount,
         migration_threshold: result.migration_threshold,
         current_timestamp: result.current_timestamp,
+        is_virtual: result.is_virtual,
     });
 
     if let Some(data) = result.curve_complete {

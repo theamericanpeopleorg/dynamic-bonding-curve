@@ -115,6 +115,7 @@ pub struct EvtSwap {
     pub swap_result: SwapResult,
     pub amount_in: u64,
     pub current_timestamp: u64,
+    pub is_virtual: bool,
 }
 
 #[event]
@@ -128,6 +129,7 @@ pub struct EvtSwap2 {
     pub quote_reserve_amount: u64,
     pub migration_threshold: u64,
     pub current_timestamp: u64,
+    pub is_virtual: bool,
 }
 
 #[event]

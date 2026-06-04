@@ -92,6 +92,7 @@ pub fn handle_swap_with_transfer_hook_wrapper<'info>(
         &ctx.accounts.referral_token_account,
         ctx.remaining_accounts,
         params,
+        false,
         transfer_hook_accounts_info,
     )?;
 

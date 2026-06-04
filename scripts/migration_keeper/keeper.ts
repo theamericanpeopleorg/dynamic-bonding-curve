@@ -153,6 +153,7 @@ export async function runKeeper(options: KeeperOptions): Promise<KeeperResult> {
           slot,
           onRetry,
           withdrawLeftover: options.withdrawLeftover === true,
+          migrationFeeReceiver: options.migrationFeeReceiver,
           result: {
             action: "already_migrated",
             pool,
@@ -199,6 +200,7 @@ export async function runKeeper(options: KeeperOptions): Promise<KeeperResult> {
         slot,
         onRetry,
         withdrawLeftover: options.withdrawLeftover === true,
+        migrationFeeReceiver: options.migrationFeeReceiver,
         result,
       });
     } catch (error) {
@@ -326,6 +328,10 @@ async function getSaleProgressLogFields(params: {
   }
 
   const quoteReserve = toBigInt(params.poolState.quoteReserve);
+  const virtualQuoteReserve = toBigInt(
+    params.poolState.virtualQuoteReserve ?? 0
+  );
+  const totalQuoteReserve = quoteReserve + virtualQuoteReserve;
   const deadlineTimestamp = toBigInt(params.poolState.deadlineTimestamp ?? 0);
   const blockTime =
     params.slot === undefined
@@ -339,7 +345,7 @@ async function getSaleProgressLogFields(params: {
     (blockTime as number | null) ?? Math.floor(Date.now() / 1000)
   );
   const thresholdReached =
-    quoteReserve >= saleProgressConfig.migrationQuoteThreshold;
+    totalQuoteReserve >= saleProgressConfig.migrationQuoteThreshold;
   const deadlineReached =
     deadlineTimestamp !== BigInt(0) && currentTimestamp >= deadlineTimestamp;
   const saleComplete = thresholdReached || deadlineReached;
@@ -350,11 +356,11 @@ async function getSaleProgressLogFields(params: {
     : "open";
   const quoteRemaining = thresholdReached
     ? BigInt(0)
-    : saleProgressConfig.migrationQuoteThreshold - quoteReserve;
+    : saleProgressConfig.migrationQuoteThreshold - totalQuoteReserve;
   const completedQuote =
-    quoteReserve > saleProgressConfig.migrationQuoteThreshold
+    totalQuoteReserve > saleProgressConfig.migrationQuoteThreshold
       ? saleProgressConfig.migrationQuoteThreshold
-      : quoteReserve;
+      : totalQuoteReserve;
 
   return {
     config: saleProgressConfig,
@@ -366,6 +372,16 @@ async function getSaleProgressLogFields(params: {
       quoteReserveRaw: quoteReserve.toString(),
       quoteReserveUi: rawAmountToUi(
         quoteReserve,
+        saleProgressConfig.quoteDecimals
+      ),
+      virtualQuoteReserveRaw: virtualQuoteReserve.toString(),
+      virtualQuoteReserveUi: rawAmountToUi(
+        virtualQuoteReserve,
+        saleProgressConfig.quoteDecimals
+      ),
+      totalQuoteReserveRaw: totalQuoteReserve.toString(),
+      totalQuoteReserveUi: rawAmountToUi(
+        totalQuoteReserve,
         saleProgressConfig.quoteDecimals
       ),
       migrationQuoteThresholdRaw:
@@ -549,6 +565,7 @@ async function withLeftoverWithdrawal(params: {
   slot: number;
   onRetry: RpcRetryLogger;
   withdrawLeftover: boolean;
+  migrationFeeReceiver?: PublicKey;
   result: KeeperResult | null;
 }): Promise<KeeperResult | null> {
   if (!params.result) {
@@ -576,14 +593,18 @@ async function maybeWithdrawPartnerMigrationFee(params: {
   pool: PublicKey;
   slot: number;
   onRetry: RpcRetryLogger;
-}): Promise<Pick<
-  KeeperResult,
-  | "partnerMigrationFeeWithdrawStatus"
-  | "partnerMigrationFeeWithdrawSignature"
-  | "partnerFeeClaimer"
-  | "partnerQuoteAccount"
-  | "partnerMigrationFeeWithdrawError"
->> {
+  migrationFeeReceiver?: PublicKey;
+}): Promise<
+  Pick<
+    KeeperResult,
+    | "partnerMigrationFeeWithdrawStatus"
+    | "partnerMigrationFeeWithdrawSignature"
+    | "partnerFeeClaimer"
+    | "migrationFeeReceiver"
+    | "partnerQuoteAccount"
+    | "partnerMigrationFeeWithdrawError"
+  >
+> {
   const poolState = await fetchPoolState({
     program: params.program,
     pool: params.pool,
@@ -653,9 +674,11 @@ async function maybeWithdrawPartnerMigrationFee(params: {
   const tokenQuoteProgram = getTokenProgramForFlag(
     Number(config.quoteTokenFlag ?? 0)
   );
+  const migrationFeeReceiver =
+    params.migrationFeeReceiver ?? new PublicKey(config.leftoverReceiver);
   const tokenQuoteAccount = getAssociatedTokenAddressSync(
     quoteMint,
-    feeClaimer,
+    migrationFeeReceiver,
     true,
     tokenQuoteProgram
   );
@@ -677,13 +700,16 @@ async function maybeWithdrawPartnerMigrationFee(params: {
         createAssociatedTokenAccountIdempotentInstruction(
           params.payer.publicKey,
           tokenQuoteAccount,
-          feeClaimer,
+          migrationFeeReceiver,
           quoteMint,
           tokenQuoteProgram
         ),
       ]);
 
-    if (quoteMint.equals(NATIVE_MINT)) {
+    if (
+      quoteMint.equals(NATIVE_MINT) &&
+      migrationFeeReceiver.equals(feeClaimer)
+    ) {
       transactionBuilder.postInstructions([
         createCloseAccountInstruction(
           tokenQuoteAccount,
@@ -708,6 +734,7 @@ async function maybeWithdrawPartnerMigrationFee(params: {
       slot: params.slot,
       pool: params.pool.toBase58(),
       feeClaimer: feeClaimer.toBase58(),
+      migrationFeeReceiver: migrationFeeReceiver.toBase58(),
       tokenQuoteAccount: tokenQuoteAccount.toBase58(),
       signature,
     });
@@ -716,6 +743,7 @@ async function maybeWithdrawPartnerMigrationFee(params: {
       partnerMigrationFeeWithdrawStatus: "withdrawn",
       partnerMigrationFeeWithdrawSignature: signature,
       partnerFeeClaimer: feeClaimer,
+      migrationFeeReceiver,
       partnerQuoteAccount: tokenQuoteAccount,
     };
   } catch (error) {
@@ -725,12 +753,14 @@ async function maybeWithdrawPartnerMigrationFee(params: {
       slot: params.slot,
       pool: params.pool.toBase58(),
       feeClaimer: feeClaimer.toBase58(),
+      migrationFeeReceiver: migrationFeeReceiver.toBase58(),
       tokenQuoteAccount: tokenQuoteAccount.toBase58(),
       message,
     });
     return {
       partnerMigrationFeeWithdrawStatus: "failed",
       partnerFeeClaimer: feeClaimer,
+      migrationFeeReceiver,
       partnerQuoteAccount: tokenQuoteAccount,
       partnerMigrationFeeWithdrawError: message,
     };
@@ -745,14 +775,16 @@ async function maybeWithdrawLeftover(params: {
   pool: PublicKey;
   slot: number;
   onRetry: RpcRetryLogger;
-}): Promise<Pick<
-  KeeperResult,
-  | "leftoverWithdrawStatus"
-  | "leftoverWithdrawSignature"
-  | "leftoverReceiver"
-  | "leftoverBaseAccount"
-  | "leftoverWithdrawError"
->> {
+}): Promise<
+  Pick<
+    KeeperResult,
+    | "leftoverWithdrawStatus"
+    | "leftoverWithdrawSignature"
+    | "leftoverReceiver"
+    | "leftoverBaseAccount"
+    | "leftoverWithdrawError"
+  >
+> {
   const poolState = await fetchPoolState({
     program: params.program,
     pool: params.pool,

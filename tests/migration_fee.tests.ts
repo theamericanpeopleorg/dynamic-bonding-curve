@@ -25,7 +25,9 @@ import {
   createVirtualCurveProgram,
   derivePoolAuthority,
   designCurve,
+  expectThrowsAsync,
   generateAndFund,
+  getDbcProgramErrorCodeHexString,
   getTokenAccount,
   getTokenProgram,
   startSvm,
@@ -53,7 +55,7 @@ describe("Migration fee", () => {
     program = createVirtualCurveProgram();
   });
 
-  it("Creator and partner withdraw migration fee", async () => {
+  it("rejects creator and partner migration fee at config creation", async () => {
     let totalTokenSupply = 1_000_000_000; // 1 billion
     let percentageSupplyOnMigration = 0.9; // 0.9%;
     let migrationQuoteThreshold = 300; // 300 sol
@@ -67,7 +69,7 @@ describe("Migration fee", () => {
       numberOfPeriod: new BN(0),
       cliffUnlockAmount: new BN(0),
     };
-    let creatorTradingFeePercentage = 50;
+    let creatorTradingFeePercentage = 0;
     let collectFeeMode = 1;
     let quoteMint = createToken(svm, admin, admin.publicKey, tokenQuoteDecimal);
     let instructionParams = designCurve(
@@ -92,87 +94,9 @@ describe("Migration fee", () => {
       quoteMint,
       instructionParams,
     };
-    let config = await createConfig(svm, program, params);
-    let configState = getConfig(svm, program, config);
-    expect(configState.creatorTradingFeePercentage).eq(
-      creatorTradingFeePercentage
-    );
-    mintSplTokenTo(
-      svm,
-      user,
-      quoteMint,
-      admin,
-      user.publicKey,
-      instructionParams.migrationQuoteThreshold.mul(new BN(2)).toNumber()
-    );
-
-    const creatorTokenQuoteAccount = getAssociatedTokenAddressSync(
-      configState.quoteMint,
-      poolCreator.publicKey,
-      true,
-      getTokenProgram(configState.quoteTokenFlag)
-    );
-
-    const partnerTokenQuoteAccount = getAssociatedTokenAddressSync(
-      configState.quoteMint,
-      partner.publicKey,
-      true,
-      getTokenProgram(configState.quoteTokenFlag)
-    );
-    const creatorTokenAccountState = getTokenAccount(
-      svm,
-      creatorTokenQuoteAccount
-    );
-    const preCreatorBalance = creatorTokenAccountState
-      ? Number(creatorTokenAccountState.amount)
-      : 0;
-
-    const partnerTokenAccountState = getTokenAccount(
-      svm,
-      partnerTokenQuoteAccount
-    );
-    const prePartnerBalance = partnerTokenAccountState
-      ? Number(partnerTokenAccountState.amount)
-      : 0;
-
-    await fullFlow(
-      svm,
-      program,
-      config,
-      poolCreator,
-      user,
-      admin,
-      quoteMint,
-      partner
-    );
-
-    // calculate migration fee
-    const product = configState.migrationQuoteThreshold.muln(
-      100 - instructionParams.migrationFee.feePercentage
-    );
-    const quoteAmount = product.addn(99).divn(100);
-    const totalMigrationFee =
-      configState.migrationQuoteThreshold.sub(quoteAmount);
-    const creatorMigrationFee = totalMigrationFee
-      .muln(instructionParams.migrationFee.creatorFeePercentage)
-      .divn(100);
-    const partnerMigrationFee = totalMigrationFee.sub(creatorMigrationFee);
-
-    const postCreatorBalance = Number(
-      getTokenAccount(svm, creatorTokenQuoteAccount).amount ?? 0
-    );
-
-    const postPartnerBalance = Number(
-      getTokenAccount(svm, partnerTokenQuoteAccount).amount ?? 0
-    );
-
-    expect(postCreatorBalance - preCreatorBalance).eq(
-      Number(creatorMigrationFee)
-    );
-
-    expect(postPartnerBalance - prePartnerBalance).eq(
-      Number(partnerMigrationFee)
-    );
+    await expectThrowsAsync(async () => {
+      await createConfig(svm, program, params);
+    }, getDbcProgramErrorCodeHexString("InvalidMigratorFeePercentage"));
   });
 });
 

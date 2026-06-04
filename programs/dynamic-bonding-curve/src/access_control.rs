@@ -10,6 +10,14 @@ pub fn is_admin(signer: &Pubkey) -> Result<()> {
     Ok(())
 }
 
+pub fn is_virtual_swap_authority(signer: &Pubkey) -> Result<()> {
+    require!(
+        crate::admin::auth::assert_eq_virtual_swap_authority(signer.key()),
+        PoolError::Unauthorized
+    );
+    Ok(())
+}
+
 pub fn is_claim_fee_operator<'info>(
     claim_fee_operator: &AccountLoader<'info, ClaimFeeOperator>,
     signer: &Pubkey,

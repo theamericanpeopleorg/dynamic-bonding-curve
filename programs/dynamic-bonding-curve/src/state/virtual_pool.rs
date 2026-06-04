@@ -158,8 +158,10 @@ pub struct PoolState {
     pub protocol_migration_quote_fee_amount: u64,
     /// Timestamp at which the sale can complete before the quote threshold is reached. 0 means disabled.
     pub deadline_timestamp: u64,
+    /// Virtual quote raised off-chain. Counts toward curve completion, but never funds migration.
+    pub virtual_quote_reserve: u64,
     /// Padding for further use
-    pub _padding_2: [u64; 2],
+    pub _padding_2: [u64; 1],
 }
 
 #[account(zero_copy)]
@@ -949,6 +951,42 @@ impl PoolState {
         trade_direction: TradeDirection,
         current_timestamp: u64,
     ) -> Result<()> {
+        self.apply_swap_result_internal(
+            config,
+            swap_result,
+            fee_mode,
+            trade_direction,
+            current_timestamp,
+            false,
+        )
+    }
+
+    pub fn apply_virtual_swap_result(
+        &mut self,
+        config: &PoolConfig,
+        swap_result: &SwapResult,
+        fee_mode: &FeeMode,
+        current_timestamp: u64,
+    ) -> Result<()> {
+        self.apply_swap_result_internal(
+            config,
+            swap_result,
+            fee_mode,
+            TradeDirection::QuoteToBase,
+            current_timestamp,
+            true,
+        )
+    }
+
+    fn apply_swap_result_internal(
+        &mut self,
+        config: &PoolConfig,
+        swap_result: &SwapResult,
+        fee_mode: &FeeMode,
+        trade_direction: TradeDirection,
+        current_timestamp: u64,
+        is_virtual: bool,
+    ) -> Result<()> {
         let &SwapResult {
             actual_input_amount,
             output_amount,
@@ -972,7 +1010,7 @@ impl PoolState {
 
             self.metrics
                 .accumulate_fee(protocol_fee, trading_fee, true)?;
-        } else {
+        } else if !is_virtual {
             self.partner_quote_fee = self.partner_quote_fee.safe_add(partner_fee)?;
             self.protocol_quote_fee = self.protocol_quote_fee.safe_add(protocol_fee)?;
             self.creator_quote_fee = self.creator_quote_fee.safe_add(creator_fee)?;
@@ -992,6 +1030,10 @@ impl PoolState {
         if trade_direction == TradeDirection::BaseToQuote {
             self.base_reserve = self.base_reserve.safe_add(actual_input_amount)?;
             self.quote_reserve = self.quote_reserve.safe_sub(actual_output_amount)?;
+        } else if is_virtual {
+            self.virtual_quote_reserve =
+                self.virtual_quote_reserve.safe_add(actual_input_amount)?;
+            self.base_reserve = self.base_reserve.safe_sub(actual_output_amount)?;
         } else {
             self.quote_reserve = self.quote_reserve.safe_add(actual_input_amount)?;
             self.base_reserve = self.base_reserve.safe_sub(actual_output_amount)?;
@@ -1082,7 +1124,7 @@ impl PoolState {
         let mut amount = self.claim_protocol_quote_fee(max_amount)?;
 
         if self.is_protocol_withdraw_surplus == 0
-            && self.is_curve_complete(migration_quote_threshold)
+            && self.has_real_quote_surplus(migration_quote_threshold)
         {
             self.update_protocol_withdraw_surplus();
             let protocol_surplus_amount = self.get_protocol_surplus(migration_quote_threshold)?;
@@ -1123,8 +1165,21 @@ impl PoolState {
             .safe_add(self.creator_base_fee)?)
     }
 
-    pub fn is_curve_complete(&self, migration_threshold: u64) -> bool {
+    pub fn total_quote_reserve(&self) -> u64 {
+        self.quote_reserve
+            .saturating_add(self.virtual_quote_reserve)
+    }
+
+    pub fn has_real_quote_surplus(&self, migration_threshold: u64) -> bool {
         self.quote_reserve >= migration_threshold
+    }
+
+    pub fn effective_migration_quote_threshold(&self, migration_threshold: u64) -> u64 {
+        self.quote_reserve.min(migration_threshold)
+    }
+
+    pub fn is_curve_complete(&self, migration_threshold: u64) -> bool {
+        self.total_quote_reserve() >= migration_threshold
     }
 
     pub fn is_deadline_reached(&self, current_timestamp: u64) -> bool {

@@ -262,6 +262,20 @@ export type SwapParams2 = {
   referralTokenAccount: PublicKey | null;
 };
 
+export type VirtualSwapParams2 = {
+  config: PublicKey;
+  payer: Keypair;
+  virtualSwapAuthority: Keypair;
+  pool: PublicKey;
+  amount0: BN;
+  amount1: BN;
+  swapMode: number;
+};
+
+function getTotalQuoteReserve(poolState: ReturnType<typeof getVirtualPool>): BN {
+  return poolState.quoteReserve.add(poolState.virtualQuoteReserve ?? new BN(0));
+}
+
 export async function swapPartialFill(
   svm: LiteSVM,
   program: VirtualCurveProgram,
@@ -391,8 +405,7 @@ export async function swapPartialFill(
     computeUnitsConsumed: consumedCUSwap,
     message: simu.meta().logs[0],
     numInstructions: transaction.instructions.length,
-    completed:
-      Number(poolState.quoteReserve) >= Number(configs.migrationQuoteThreshold),
+    completed: getTotalQuoteReserve(poolState).gte(configs.migrationQuoteThreshold),
   };
 }
 
@@ -526,8 +539,7 @@ export async function swap(
     computeUnitsConsumed: consumedCUSwap,
     message: simu.meta().logs()[0],
     numInstructions: transaction.instructions.length,
-    completed:
-      Number(poolState.quoteReserve) >= Number(configs.migrationQuoteThreshold),
+    completed: getTotalQuoteReserve(poolState).gte(configs.migrationQuoteThreshold),
   };
 }
 
@@ -666,8 +678,109 @@ export async function swapWithTransferHook(
     computeUnitsConsumed: consumedCUSwap,
     message: simu.meta().logs()[0],
     numInstructions: transaction.instructions.length,
-    completed:
-      Number(poolState.quoteReserve) >= Number(configs.migrationQuoteThreshold),
+    completed: getTotalQuoteReserve(poolState).gte(configs.migrationQuoteThreshold),
+  };
+}
+
+export async function virtualSwap2(
+  svm: LiteSVM,
+  program: VirtualCurveProgram,
+  params: VirtualSwapParams2
+): Promise<{
+  pool: PublicKey;
+  computeUnitsConsumed: number;
+  message: any;
+  numInstructions: number;
+  completed: boolean;
+}> {
+  const {
+    config,
+    payer,
+    virtualSwapAuthority,
+    pool,
+    amount0,
+    amount1,
+    swapMode,
+  } = params;
+
+  const poolAuthority = derivePoolAuthority();
+  let poolState = getVirtualPool(svm, program, pool);
+  const configState = getConfig(svm, program, config);
+  const tokenBaseProgram =
+    configState.tokenType == 0 ? TOKEN_PROGRAM_ID : TOKEN_2022_PROGRAM_ID;
+  const tokenQuoteProgram = TOKEN_PROGRAM_ID;
+
+  const [
+    { ata: inputTokenAccount, ix: createInputTokenAccountIx },
+    { ata: outputTokenAccount, ix: createOutputTokenAccountIx },
+  ] = [
+    getOrCreateAssociatedTokenAccount(
+      svm,
+      payer,
+      configState.quoteMint,
+      virtualSwapAuthority.publicKey,
+      tokenQuoteProgram
+    ),
+    getOrCreateAssociatedTokenAccount(
+      svm,
+      payer,
+      poolState.baseMint,
+      payer.publicKey,
+      tokenBaseProgram
+    ),
+  ];
+
+  const preInstructions: TransactionInstruction[] = [];
+  createInputTokenAccountIx && preInstructions.push(createInputTokenAccountIx);
+  createOutputTokenAccountIx && preInstructions.push(createOutputTokenAccountIx);
+
+  const transaction = await program.methods
+    .virtualSwap2({
+      amount0,
+      amount1,
+      swapMode,
+    })
+    .accountsPartial({
+      poolAuthority,
+      config,
+      pool,
+      inputTokenAccount,
+      outputTokenAccount,
+      baseVault: poolState.baseVault,
+      quoteVault: poolState.quoteVault,
+      baseMint: poolState.baseMint,
+      quoteMint: configState.quoteMint,
+      payer: virtualSwapAuthority.publicKey,
+      tokenBaseProgram,
+      tokenQuoteProgram,
+      referralTokenAccount: null,
+    })
+    .preInstructions(preInstructions)
+    .remainingAccounts([
+      {
+        pubkey: SYSVAR_INSTRUCTIONS_PUBKEY,
+        isSigner: false,
+        isWritable: false,
+      },
+    ])
+    .transaction();
+
+  transaction.recentBlockhash = svm.latestBlockhash();
+  transaction.feePayer = payer.publicKey;
+  transaction.sign(payer, virtualSwapAuthority);
+
+  const simu = svm.simulateTransaction(transaction);
+  const consumedCUSwap = Number(simu.meta().computeUnitsConsumed);
+  sendTransactionMaybeThrow(svm, transaction, [payer, virtualSwapAuthority]);
+
+  poolState = getVirtualPool(svm, program, pool);
+  const configs = getConfig(svm, program, config);
+  return {
+    pool,
+    computeUnitsConsumed: consumedCUSwap,
+    message: simu.meta().logs()[0],
+    numInstructions: transaction.instructions.length,
+    completed: getTotalQuoteReserve(poolState).gte(configs.migrationQuoteThreshold),
   };
 }
 
@@ -964,8 +1077,7 @@ export async function swap2(
     computeUnitsConsumed: consumedCUSwap,
     message: simu.meta().logs()[0],
     numInstructions: transaction.instructions.length,
-    completed:
-      Number(poolState.quoteReserve) >= Number(configs.migrationQuoteThreshold),
+    completed: getTotalQuoteReserve(poolState).gte(configs.migrationQuoteThreshold),
   };
 }
 
@@ -1076,8 +1188,7 @@ export async function swapSimulate(
     computeUnitsConsumed: consumedCUSwap,
     message: simu.meta().logs()[0],
     numInstructions: transaction.instructions.length,
-    completed:
-      Number(poolState.quoteReserve) >= Number(configs.migrationQuoteThreshold),
+    completed: getTotalQuoteReserve(poolState).gte(configs.migrationQuoteThreshold),
   };
 }
 

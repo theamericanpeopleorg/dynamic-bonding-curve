@@ -56,7 +56,7 @@ describe("Creator and Partner share trading fees and surplus", () => {
     program = createVirtualCurveProgram();
   });
 
-  it("50-50 fee between partner and creator", async () => {
+  it("rejects 50-50 fee between partner and creator", async () => {
     let totalTokenSupply = 1_000_000_000; // 1 billion
     let percentageSupplyOnMigration = 10; // 10%;
     let migrationQuoteThreshold = 300; // 300 sol
@@ -95,32 +95,12 @@ describe("Creator and Partner share trading fees and surplus", () => {
       quoteMint,
       instructionParams,
     };
-    let config = await createConfig(svm, program, params);
-    let configState = getConfig(svm, program, config);
-    expect(configState.creatorTradingFeePercentage).eq(
-      creatorTradingFeePercentage
-    );
-    mintSplTokenTo(
-      svm,
-      user,
-      quoteMint,
-      admin,
-      user.publicKey,
-      instructionParams.migrationQuoteThreshold.mul(new BN(2)).toNumber()
-    );
-    await fullFlow(
-      svm,
-      program,
-      config,
-      poolCreator,
-      user,
-      admin,
-      quoteMint,
-      partner
-    );
+    await expectThrowsAsync(async () => {
+      await createConfig(svm, program, params);
+    }, getDbcProgramErrorCodeHexString("InvalidCreatorTradingFeePercentage"));
   });
 
-  it("0-100 fee between partner and creator", async () => {
+  it("rejects 0-100 fee between partner and creator", async () => {
     let totalTokenSupply = 1_000_000_000; // 1 billion
     let percentageSupplyOnMigration = 10; // 10%;
     let migrationQuoteThreshold = 300; // 300 sol
@@ -159,29 +139,9 @@ describe("Creator and Partner share trading fees and surplus", () => {
       quoteMint,
       instructionParams,
     };
-    let config = await createConfig(svm, program, params);
-    let configState = getConfig(svm, program, config);
-    expect(configState.creatorTradingFeePercentage).eq(
-      creatorTradingFeePercentage
-    );
-    mintSplTokenTo(
-      svm,
-      user,
-      quoteMint,
-      admin,
-      user.publicKey,
-      instructionParams.migrationQuoteThreshold.mul(new BN(2)).toNumber()
-    );
-    await fullFlow(
-      svm,
-      program,
-      config,
-      poolCreator,
-      user,
-      admin,
-      quoteMint,
-      partner
-    );
+    await expectThrowsAsync(async () => {
+      await createConfig(svm, program, params);
+    }, getDbcProgramErrorCodeHexString("InvalidCreatorTradingFeePercentage"));
   });
 
   it("100-0 fee between partner and creator", async () => {
@@ -248,7 +208,7 @@ describe("Creator and Partner share trading fees and surplus", () => {
     );
   });
 
-  it("20-80 fee between partner and creator", async () => {
+  it("rejects 20-80 fee between partner and creator", async () => {
     let totalTokenSupply = 1_000_000_000; // 1 billion
     let percentageSupplyOnMigration = 10; // 10%;
     let migrationQuoteThreshold = 300; // 300 sol
@@ -287,29 +247,9 @@ describe("Creator and Partner share trading fees and surplus", () => {
       quoteMint,
       instructionParams,
     };
-    let config = await createConfig(svm, program, params);
-    let configState = getConfig(svm, program, config);
-    expect(configState.creatorTradingFeePercentage).eq(
-      creatorTradingFeePercentage
-    );
-    mintSplTokenTo(
-      svm,
-      user,
-      quoteMint,
-      admin,
-      user.publicKey,
-      instructionParams.migrationQuoteThreshold.mul(new BN(2)).toNumber()
-    );
-    await fullFlow(
-      svm,
-      program,
-      config,
-      poolCreator,
-      user,
-      admin,
-      quoteMint,
-      partner
-    );
+    await expectThrowsAsync(async () => {
+      await createConfig(svm, program, params);
+    }, getDbcProgramErrorCodeHexString("InvalidCreatorTradingFeePercentage"));
   });
 });
 

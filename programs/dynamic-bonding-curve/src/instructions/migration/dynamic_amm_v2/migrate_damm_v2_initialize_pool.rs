@@ -531,7 +531,7 @@ pub fn handle_migrate_damm_v2<'info>(ctx: Context<'info, MigrateDammV2Ctx<'info>
     let migration_progress = virtual_pool.get_migration_progress()?;
     let locked_vesting_params = config.locked_vesting_config.to_locked_vesting_params();
     let deadline_reached = virtual_pool.is_deadline_reached(current_timestamp);
-    let threshold_reached = virtual_pool.is_curve_complete(config.migration_quote_threshold);
+    let sale_complete = virtual_pool.is_curve_complete(config.migration_quote_threshold);
     let can_migrate_after_deadline = migration_progress == MigrationProgress::PreBondingCurve
         && deadline_reached
         && !locked_vesting_params.has_vesting();
@@ -542,7 +542,7 @@ pub fn handle_migrate_damm_v2<'info>(ctx: Context<'info, MigrateDammV2Ctx<'info>
     );
 
     require!(
-        threshold_reached || deadline_reached,
+        sale_complete || deadline_reached,
         PoolError::PoolIsIncompleted
     );
 
@@ -563,11 +563,7 @@ pub fn handle_migrate_damm_v2<'info>(ctx: Context<'info, MigrateDammV2Ctx<'info>
 
     let migrated_collect_fee_mode: MigratedCollectFeeMode =
         config.migrated_collect_fee_mode.safe_cast()?;
-    let migration_sqrt_price = if threshold_reached {
-        config.migration_sqrt_price
-    } else {
-        virtual_pool.sqrt_price
-    };
+    let migration_sqrt_price = virtual_pool.sqrt_price;
 
     let liquidity_handler = get_migration_handler(
         MigrationOption::DammV2,
@@ -575,33 +571,24 @@ pub fn handle_migrate_damm_v2<'info>(ctx: Context<'info, MigrateDammV2Ctx<'info>
         migration_sqrt_price,
     );
 
+    let effective_migration_quote_threshold =
+        virtual_pool.effective_migration_quote_threshold(config.migration_quote_threshold);
+    require!(
+        effective_migration_quote_threshold > 0,
+        PoolError::InsufficientLiquidityForMigration
+    );
     let (included_protocol_fee_migration_base_amount, included_protocol_fee_migration_quote_amount) =
-        if threshold_reached {
-            liquidity_handler.get_included_protocol_fee_migration_amounts_2(
-                config.migration_base_threshold,
-                config.migration_quote_threshold,
-                config.migration_fee_percentage,
-                initial_base_vault_amount.safe_sub(protocol_and_partner_base_fee)?,
-            )?
-        } else {
-            require!(
-                virtual_pool.quote_reserve > 0,
-                PoolError::InsufficientLiquidityForMigration
-            );
-            let migration_amounts = liquidity_handler
-                .get_included_protocol_fee_migration_amounts_1(
-                    virtual_pool.quote_reserve,
-                    config.migration_fee_percentage,
-                )?;
-            require!(
-                initial_base_vault_amount.safe_sub(protocol_and_partner_base_fee)?
-                    >= migration_amounts.0
-                    && migration_amounts.0 > 0
-                    && migration_amounts.1 > 0,
-                PoolError::InsufficientLiquidityForMigration
-            );
-            migration_amounts
-        };
+        liquidity_handler.get_included_protocol_fee_migration_amounts_1(
+            effective_migration_quote_threshold,
+            config.migration_fee_percentage,
+        )?;
+    require!(
+        initial_base_vault_amount.safe_sub(protocol_and_partner_base_fee)?
+            >= included_protocol_fee_migration_base_amount
+            && included_protocol_fee_migration_base_amount > 0
+            && included_protocol_fee_migration_quote_amount > 0,
+        PoolError::InsufficientLiquidityForMigration
+    );
 
     let (protocol_migration_base_fee, protocol_migration_quote_fee) = liquidity_handler
         .get_migration_protocol_fees(

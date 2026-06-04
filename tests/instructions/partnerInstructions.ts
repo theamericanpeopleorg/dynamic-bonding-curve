@@ -399,11 +399,7 @@ export async function claimTradingFee2(
     await getRemainingAccountsForTransferHook(svm, program, pool);
 
   const transaction = await program.methods
-    .claimTradingFee2(
-      maxBaseAmount,
-      maxQuoteAmount,
-      transferHookAccountsInfo
-    )
+    .claimTradingFee2(maxBaseAmount, maxQuoteAmount, transferHookAccountsInfo)
     .accountsPartial({
       poolAuthority,
       config: poolState.config,
@@ -527,6 +523,7 @@ export async function withdrawLeftover(
 
 export type PartnerWithdrawMigrationFeeParams = {
   partner: Keypair;
+  migrationFeeReceiver?: PublicKey;
   virtualPool: PublicKey;
 };
 export async function partnerWithdrawMigrationFee(
@@ -538,6 +535,8 @@ export async function partnerWithdrawMigrationFee(
   const poolAuthority = derivePoolAuthority();
   const poolState = getVirtualPool(svm, program, virtualPool);
   const configState = getConfig(svm, program, poolState.config);
+  const migrationFeeReceiver =
+    params.migrationFeeReceiver ?? configState.leftoverReceiver;
 
   const preInstructions: TransactionInstruction[] = [];
   const postInstructions: TransactionInstruction[] = [];
@@ -546,13 +545,16 @@ export async function partnerWithdrawMigrationFee(
       svm,
       partner,
       configState.quoteMint,
-      partner.publicKey,
+      migrationFeeReceiver,
       getTokenProgram(configState.quoteTokenFlag)
     );
 
   createQuoteTokenAccountIx && preInstructions.push(createQuoteTokenAccountIx);
 
-  if (configState.quoteMint.equals(NATIVE_MINT)) {
+  if (
+    configState.quoteMint.equals(NATIVE_MINT) &&
+    migrationFeeReceiver.equals(partner.publicKey)
+  ) {
     const unrapSOLIx = unwrapSOLInstruction(partner.publicKey);
     unrapSOLIx && postInstructions.push(unrapSOLIx);
   }

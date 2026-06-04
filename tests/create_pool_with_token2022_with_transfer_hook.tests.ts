@@ -126,7 +126,7 @@ describe("Create pool with token2022 transfer hook", () => {
       },
       migrationFeeOption: 0,
       tokenSupply: null,
-      creatorTradingFeePercentage: 50,
+      creatorTradingFeePercentage: 0,
       tokenUpdateAuthority: 0,
       migrationFee: {
         feePercentage: 0,

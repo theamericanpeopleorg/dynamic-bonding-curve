@@ -70,7 +70,7 @@ describe("Update creator", () => {
       numberOfPeriod: new BN(0),
       cliffUnlockAmount: new BN(0),
     };
-    let creatorTradingFeePercentage = 100;
+    let creatorTradingFeePercentage = 0;
     let collectFeeMode = 0;
     let quoteMint = createToken(svm, admin, admin.publicKey, tokenQuoteDecimal);
     let instructionParams = designCurve(
@@ -134,7 +134,7 @@ describe("Update creator", () => {
       numberOfPeriod: new BN(0),
       cliffUnlockAmount: new BN(0),
     };
-    let creatorTradingFeePercentage = 100;
+    let creatorTradingFeePercentage = 0;
     let collectFeeMode = 0;
     let quoteMint = createToken(svm, admin, admin.publicKey, tokenQuoteDecimal);
     let instructionParams = designCurve(

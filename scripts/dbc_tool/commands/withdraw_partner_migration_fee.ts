@@ -36,9 +36,11 @@ export async function withdrawPartnerMigrationFee(
   const tokenQuoteProgram = getTokenProgramForFlag(
     toNumber(config.quoteTokenFlag ?? 0)
   );
+  const migrationFeeReceiver =
+    options.migrationFeeReceiver ?? new PublicKey(config.leftoverReceiver);
   const tokenQuoteAccount = getAssociatedTokenAddressSync(
     quoteMint,
-    feeClaimer.publicKey,
+    migrationFeeReceiver,
     true,
     tokenQuoteProgram
   );
@@ -46,22 +48,24 @@ export async function withdrawPartnerMigrationFee(
     createAssociatedTokenAccountIdempotentInstruction(
       feeClaimer.publicKey,
       tokenQuoteAccount,
-      feeClaimer.publicKey,
+      migrationFeeReceiver,
       quoteMint,
       tokenQuoteProgram
     ),
   ];
-  const postInstructions = quoteMint.equals(NATIVE_MINT)
-    ? [
-        createCloseAccountInstruction(
-          tokenQuoteAccount,
-          feeClaimer.publicKey,
-          feeClaimer.publicKey,
-          [],
-          TOKEN_PROGRAM_ID
-        ),
-      ]
-    : [];
+  const postInstructions =
+    quoteMint.equals(NATIVE_MINT) &&
+    migrationFeeReceiver.equals(feeClaimer.publicKey)
+      ? [
+          createCloseAccountInstruction(
+            tokenQuoteAccount,
+            feeClaimer.publicKey,
+            feeClaimer.publicKey,
+            [],
+            TOKEN_PROGRAM_ID
+          ),
+        ]
+      : [];
 
   const transaction = await program.methods
     .withdrawMigrationFee(0)
@@ -79,11 +83,14 @@ export async function withdrawPartnerMigrationFee(
     .postInstructions(postInstructions)
     .transaction();
 
-  const signature = await simulateAndSend(connection, transaction, [feeClaimer]);
+  const signature = await simulateAndSend(connection, transaction, [
+    feeClaimer,
+  ]);
 
   return {
     pool: poolPublicKey,
     feeClaimer: feeClaimer.publicKey,
+    migrationFeeReceiver,
     tokenQuoteAccount,
     signature,
   };

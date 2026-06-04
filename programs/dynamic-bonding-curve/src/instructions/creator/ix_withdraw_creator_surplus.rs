@@ -60,9 +60,9 @@ pub fn handle_creator_withdraw_surplus(ctx: Context<CreatorWithdrawSurplusCtx>) 
         ErrorCode::ConstraintHasOne
     );
 
-    // Make sure pool has been completed
+    // Surplus can only exist when the real quote reserve reached the threshold.
     require!(
-        pool.is_curve_complete(config.migration_quote_threshold),
+        pool.has_real_quote_surplus(config.migration_quote_threshold),
         PoolError::NotPermitToDoThisAction
     );
 

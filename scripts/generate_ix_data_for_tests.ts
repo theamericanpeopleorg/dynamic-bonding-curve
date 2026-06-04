@@ -35,6 +35,39 @@ const isOldVersion = VirtualCurveIDL.metadata.version == "0.1.2";
 // We only care about IX data, so we use this in every account so Anchor doesn't complain
 const DUMMY_PUBKEY: PublicKey = Keypair.generate().publicKey;
 
+const zeroLiquidityVestingInfo = {
+  vestingPercentage: 0,
+  cliffDurationFromMigrationTime: 0,
+  bpsPerPeriod: 0,
+  numberOfPeriods: 0,
+  frequency: 0,
+};
+
+const zeroMigratedPoolFee = {
+  poolFeeBps: 0,
+  collectFeeMode: 0,
+  dynamicFee: 0,
+};
+
+const zeroMarketCapFeeSchedulerParams = {
+  numberOfPeriod: 0,
+  sqrtPriceStepBps: 0,
+  schedulerExpirationDuration: 0,
+  reductionFactor: new BN(0),
+};
+
+const currentConfigDefaults = {
+  migratedPoolFee: zeroMigratedPoolFee,
+  poolCreationFee: new BN(0),
+  partnerLiquidityVestingInfo: zeroLiquidityVestingInfo,
+  creatorLiquidityVestingInfo: zeroLiquidityVestingInfo,
+  migratedPoolBaseFeeMode: 0,
+  migratedPoolMarketCapFeeSchedulerParams: zeroMarketCapFeeSchedulerParams,
+  enableFirstSwapWithMinFee: false,
+  compoundingFeeBps: 0,
+  padding: [0, 0],
+};
+
 /// PARTNER FUNCTIONS ////
 
 async function createPartnerMetadata(
@@ -91,10 +124,10 @@ async function createConfigSplToken(
     tokenDecimal: 6,
     // 5 SOL
     migrationQuoteThreshold: new BN(5e9),
-    partnerLpPercentage: 20,
-    creatorLpPercentage: 30,
-    partnerLockedLpPercentage: 10,
-    creatorLockedLpPercentage: 40,
+    partnerLiquidityPercentage: 20,
+    creatorLiquidityPercentage: 30,
+    partnerPermanentLockedLiquidityPercentage: 10,
+    creatorPermanentLockedLiquidityPercentage: 40,
     sqrtStartPrice: MIN_SQRT_PRICE,
     lockedVesting: {
       amountPerPeriod: new BN(2),
@@ -105,14 +138,13 @@ async function createConfigSplToken(
     },
     migrationFeeOption: 0,
     tokenSupply: null,
-    creatorTradingFeePercentage: 10,
+    creatorTradingFeePercentage: 0,
     tokenUpdateAuthority: 1,
     migrationFee: {
-      feePercentage: 30,
-      creatorFeePercentage: 20,
+      feePercentage: 0,
+      creatorFeePercentage: 0,
     },
-    padding0: [],
-    padding1: [],
+    ...currentConfigDefaults,
     curve: curves,
   };
 
@@ -171,10 +203,10 @@ async function createConfigToken2022(
     tokenDecimal: 6,
     // 5 SOL
     migrationQuoteThreshold: new BN(5e9),
-    partnerLpPercentage: 20,
-    creatorLpPercentage: 30,
-    partnerLockedLpPercentage: 10,
-    creatorLockedLpPercentage: 40,
+    partnerLiquidityPercentage: 20,
+    creatorLiquidityPercentage: 30,
+    partnerPermanentLockedLiquidityPercentage: 10,
+    creatorPermanentLockedLiquidityPercentage: 40,
     sqrtStartPrice: MIN_SQRT_PRICE,
     lockedVesting: {
       amountPerPeriod: new BN(2),
@@ -185,14 +217,13 @@ async function createConfigToken2022(
     },
     migrationFeeOption: 0,
     tokenSupply: null,
-    creatorTradingFeePercentage: 10,
+    creatorTradingFeePercentage: 0,
     tokenUpdateAuthority: 1,
     migrationFee: {
-      feePercentage: 30,
-      creatorFeePercentage: 20,
+      feePercentage: 0,
+      creatorFeePercentage: 0,
     },
-    padding0: [],
-    padding1: [],
+    ...currentConfigDefaults,
     curve: curves,
   };
 
@@ -255,10 +286,10 @@ async function createConfigSplTokenForSwapDamm(
     tokenType: 0, // spl_token
     tokenDecimal: 6,
     migrationQuoteThreshold: new BN(5e9),
-    partnerLpPercentage: 1,
-    creatorLpPercentage: 1,
-    partnerLockedLpPercentage: 94,
-    creatorLockedLpPercentage: 4,
+    partnerLiquidityPercentage: 1,
+    creatorLiquidityPercentage: 1,
+    partnerPermanentLockedLiquidityPercentage: 94,
+    creatorPermanentLockedLiquidityPercentage: 4,
     sqrtStartPrice: MIN_SQRT_PRICE.shln(32),
     lockedVesting: {
       amountPerPeriod: new BN(0),
@@ -275,8 +306,7 @@ async function createConfigSplTokenForSwapDamm(
       feePercentage: 0,
       creatorFeePercentage: 0,
     },
-    padding0: [],
-    padding1: [],
+    ...currentConfigDefaults,
     curve: curves,
   };
 
@@ -339,10 +369,10 @@ async function createConfigSplTokenForSwapDammv2(
     tokenType: 0, // spl_token
     tokenDecimal: 6,
     migrationQuoteThreshold: new BN(5e9),
-    partnerLpPercentage: 1,
-    creatorLpPercentage: 1,
-    partnerLockedLpPercentage: 94,
-    creatorLockedLpPercentage: 4,
+    partnerLiquidityPercentage: 1,
+    creatorLiquidityPercentage: 1,
+    partnerPermanentLockedLiquidityPercentage: 94,
+    creatorPermanentLockedLiquidityPercentage: 4,
     sqrtStartPrice: MIN_SQRT_PRICE.shln(32),
     lockedVesting: {
       amountPerPeriod: new BN(0),
@@ -362,8 +392,7 @@ async function createConfigSplTokenForSwapDammv2(
       feePercentage: 0,
       creatorFeePercentage: 0,
     },
-    padding0: [],
-    padding1: [],
+    ...currentConfigDefaults,
     curve: curves,
   };
 
@@ -422,10 +451,10 @@ async function createConfigSplTokenWithBaseFeeParameters(
     tokenDecimal: 6,
     // 5 SOL
     migrationQuoteThreshold: new BN(5e9),
-    partnerLpPercentage: 20,
-    creatorLpPercentage: 30,
-    partnerLockedLpPercentage: 10,
-    creatorLockedLpPercentage: 40,
+    partnerLiquidityPercentage: 20,
+    creatorLiquidityPercentage: 30,
+    partnerPermanentLockedLiquidityPercentage: 10,
+    creatorPermanentLockedLiquidityPercentage: 40,
     sqrtStartPrice: MIN_SQRT_PRICE,
     lockedVesting: {
       amountPerPeriod: new BN(2),
@@ -436,14 +465,13 @@ async function createConfigSplTokenWithBaseFeeParameters(
     },
     migrationFeeOption: 0,
     tokenSupply: null,
-    creatorTradingFeePercentage: 10,
+    creatorTradingFeePercentage: 0,
     tokenUpdateAuthority: 1,
     migrationFee: {
-      feePercentage: 30,
-      creatorFeePercentage: 20,
+      feePercentage: 0,
+      creatorFeePercentage: 0,
     },
-    padding0: [],
-    padding1: [],
+    ...currentConfigDefaults,
     curve: curves,
   };
 

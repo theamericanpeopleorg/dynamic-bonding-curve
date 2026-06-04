@@ -97,6 +97,7 @@ export type BuyOptions = {
 export type WithdrawPartnerMigrationFeeOptions = {
   rpcUrl?: string;
   feeClaimer?: Keypair;
+  migrationFeeReceiver?: PublicKey;
 };
 
 export type WithdrawLeftoverOptions = {
@@ -131,6 +132,7 @@ export type BuyResult = SendResult & {
 export type WithdrawPartnerMigrationFeeResult = SendResult & {
   pool: PublicKey;
   feeClaimer: PublicKey;
+  migrationFeeReceiver: PublicKey;
   tokenQuoteAccount: PublicKey;
 };
 
@@ -155,10 +157,12 @@ export function loadKeypair(keypairPath = process.env.KEYPAIR_PATH): Keypair {
   return Keypair.fromSecretKey(Uint8Array.from(bytes));
 }
 
-export function buildMschfCurveConfig(options: {
-  migrationFeePercentage?: number;
-  creatorMigrationFeePercentage?: number;
-} = {}): ConfigParameters {
+export function buildMschfCurveConfig(
+  options: {
+    migrationFeePercentage?: number;
+    creatorMigrationFeePercentage?: number;
+  } = {}
+): ConfigParameters {
   const tokenBaseDecimal = TokenDecimal.SIX;
   const tokenQuoteDecimal = TokenDecimal.SIX;
   const soldBaseAmount = uiAmountToRaw(

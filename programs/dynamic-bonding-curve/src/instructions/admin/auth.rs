@@ -16,6 +16,13 @@ pub mod treasury {
     pub const ID: Pubkey = pubkey!("6aYhxiNGmG8AyU25rh2R7iFu4pBrqnQHpNUGhmsEXRcm");
 }
 
+pub mod virtual_swap_authority {
+    use anchor_lang::{prelude::Pubkey, pubkey};
+
+    // TODO: Replace with the production Privy backend signer before non-local deployment.
+    pub const ID: Pubkey = pubkey!("11111111111111111111111111111111");
+}
+
 #[cfg(feature = "local")]
 pub fn assert_eq_admin(_admin: Pubkey) -> bool {
     true
@@ -26,4 +33,14 @@ pub fn assert_eq_admin(admin: Pubkey) -> bool {
     crate::admin::admin::ADMINS
         .iter()
         .any(|predefined_admin| predefined_admin.eq(&admin))
+}
+
+#[cfg(feature = "local")]
+pub fn assert_eq_virtual_swap_authority(_authority: Pubkey) -> bool {
+    true
+}
+
+#[cfg(not(feature = "local"))]
+pub fn assert_eq_virtual_swap_authority(authority: Pubkey) -> bool {
+    crate::admin::virtual_swap_authority::ID.eq(&authority)
 }

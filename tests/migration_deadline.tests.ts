@@ -199,8 +199,8 @@ describe("Migration deadline", () => {
     );
     const config = await createDeadlineConfig({
       migrationFee: {
-        feePercentage: 10,
-        creatorFeePercentage: 100,
+        feePercentage: 0,
+        creatorFeePercentage: 0,
       },
     });
     const { virtualPool } = await createUnderfilledPool({
@@ -237,8 +237,8 @@ describe("Migration deadline", () => {
     );
     const config = await createDeadlineConfig({
       migrationFee: {
-        feePercentage: 10,
-        creatorFeePercentage: 100,
+        feePercentage: 0,
+        creatorFeePercentage: 0,
       },
     });
     const { virtualPool } = await createUnderfilledPool({

@@ -1395,7 +1395,6 @@ function renderHtml(options: Options): string {
         ["Protocol migration quote", formatTokenAmount(info.fees.protocolMigrationQuoteFeeUi, "quote")],
       ]);
       renderKv(el.feeEstimateDetails, [
-        ["Migration fee basis", info.fees.migrationFeeBasisMode],
         ["Basis amount", formatTokenAmount(info.fees.migrationFeeBasisUi, "quote")],
         ["Migration fee pct", pct(info.fees.migrationFeePercentage)],
         ["Creator split", pct(info.fees.creatorMigrationFeePercentage)],
