@@ -1224,6 +1224,10 @@ impl PoolState {
     }
 
     pub fn get_creator_surplus(&self, config: &PoolConfig, total_surplus: u64) -> Result<u64> {
+        if config.is_fixed_migration_quote_amount_enabled() {
+            return Ok(0);
+        }
+
         let partner_and_creator_surplus = self.get_partner_and_creator_surplus(total_surplus)?;
 
         let PartnerAndCreatorSplitFee { creator_fee, .. } =

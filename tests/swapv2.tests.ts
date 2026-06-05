@@ -5,6 +5,7 @@ import {
   CreateConfigParams,
   createMeteoraDammV2Metadata,
   createPoolWithSplToken,
+  creatorWithdrawSurplus,
   migrateToDammV2,
   partnerWithdrawSurplus,
   swap2,
@@ -591,6 +592,7 @@ describe("Swap V2", () => {
     opts: {
       migrationQuoteAmountCapDivisor?: number;
       migrationFee?: { feePercentage: number; creatorFeePercentage: number };
+      creatorTradingFeePercentage?: number;
     } = {}
   ) {
     const totalTokenSupply = 1_000_000_000;
@@ -618,7 +620,7 @@ describe("Swap V2", () => {
       migrationOption,
       tokenBaseDecimal,
       tokenQuoteDecimal,
-      0,
+      opts.creatorTradingFeePercentage ?? 0,
       collectFeeMode,
       lockedVesting,
       opts.migrationFee ?? {
@@ -906,6 +908,73 @@ describe("Swap V2", () => {
       virtualPool,
       dammConfig: dammV2Config,
     });
+
+    await partnerWithdrawSurplus(svm, program, {
+      feeClaimer: partner,
+      virtualPool,
+    });
+
+    const partnerQuoteAccount = getAssociatedTokenAddressSync(
+      quoteMint,
+      partner.publicKey,
+      false
+    );
+    const partnerQuoteBalance = getTokenAccount(
+      svm,
+      partnerQuoteAccount
+    ).amount;
+    expect(partnerQuoteBalance.toString()).eq(partnerSurplus.toString());
+  });
+
+  it("fixed migration quote cap rejects creator surplus even with creator trading split", async () => {
+    const { config, instructionParams, quoteMint, virtualPool } =
+      await createVirtualSwapFixture(1, 1, {
+        migrationQuoteAmountCapDivisor: 2,
+        creatorTradingFeePercentage: 50,
+      });
+    let virtualPoolState = getVirtualPool(svm, program, virtualPool);
+    const migrationQuoteCap = instructionParams.migrationQuoteAmountCap!;
+    const partnerSurplus =
+      instructionParams.migrationQuoteThreshold.sub(migrationQuoteCap);
+
+    mintSplTokenTo(
+      svm,
+      user,
+      quoteMint,
+      admin,
+      user.publicKey,
+      instructionParams.migrationQuoteThreshold.toNumber()
+    );
+
+    await swap2(svm, program, {
+      config,
+      payer: user,
+      pool: virtualPool,
+      inputTokenMint: quoteMint,
+      outputTokenMint: virtualPoolState.baseMint,
+      amount0: instructionParams.migrationQuoteThreshold,
+      amount1: new BN(0),
+      referralTokenAccount: null,
+      swapMode: SwapMode.ExactIn,
+    });
+
+    await createMeteoraDammV2Metadata(svm, program, {
+      payer: admin,
+      virtualPool,
+      config,
+    });
+    await migrateToDammV2(svm, program, {
+      payer: admin,
+      virtualPool,
+      dammConfig: dammV2Config,
+    });
+
+    await expectThrowsAsync(async () => {
+      await creatorWithdrawSurplus(svm, program, {
+        creator: poolCreator,
+        virtualPool,
+      });
+    }, getDbcProgramErrorCodeHexString("NotPermitToDoThisAction"));
 
     await partnerWithdrawSurplus(svm, program, {
       feeClaimer: partner,
