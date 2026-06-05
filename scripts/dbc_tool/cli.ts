@@ -17,7 +17,7 @@ import {
 
 export function usage() {
   console.log(`Usage:
-  bun scripts/dbc_tool/dbc_tool.ts create-config [--rpc-url <URL>] [--quote-mint <MINT>] [--migration-fee-pct <0-100>] [--creator-migration-fee-pct <0-100>]
+  bun scripts/dbc_tool/dbc_tool.ts create-config [--rpc-url <URL>] [--quote-mint <MINT>] [--migration-quote-amount-cap <RAW_QUOTE_AMOUNT>] [--migration-fee-pct <0-100>] [--creator-migration-fee-pct <0-100>]
   bun scripts/dbc_tool/dbc_tool.ts create-pool <CONFIG_PUBKEY> [--rpc-url <URL>] [--base-mint-keypair <PATH>] [--deadline-timestamp <UNIX_SECONDS>]
   bun scripts/dbc_tool/dbc_tool.ts pool-info <POOL_PUBKEY> [--rpc-url <URL>]
   bun scripts/dbc_tool/dbc_tool.ts buy <POOL_PUBKEY> <BASE_AMOUNT> [--rpc-url <URL>] [--raw]

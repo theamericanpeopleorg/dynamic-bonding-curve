@@ -1379,7 +1379,9 @@ function renderHtml(options: Options): string {
 
       renderKv(el.saleDetails, [
         ["Base reserve", info.sale.baseReserveUi],
-        ["Quote reserve", info.sale.quoteReserveUi],
+        ["Real quote reserve", info.sale.quoteReserveUi],
+        ["Virtual quote reserve", info.sale.virtualQuoteReserveUi],
+        ["Total quote reserve", info.sale.totalQuoteReserveUi],
         ["Initial base supply", info.sale.initialBaseSupplyUi],
         ["Planned swap base", info.sale.plannedSwapBaseAmountUi],
         ["Sold of initial", pct(info.sale.tokensSoldPercentOfInitialSupply)],
@@ -1396,6 +1398,10 @@ function renderHtml(options: Options): string {
         ["Has locked vesting", String(info.migration.hasLockedVesting)],
         ["Migrated", String(info.migration.isMigrated)],
         ["Quote threshold", info.migration.migrationQuoteThresholdUi],
+        ["Real quote reserve", info.migration.quoteReserveUi],
+        ["Virtual quote reserve", info.migration.virtualQuoteReserveUi],
+        ["Total quote reserve", info.migration.totalQuoteReserveUi],
+        ["Quote remaining", info.migration.quoteRemainingUi],
         ["Migration quote cap", info.migration.migrationQuoteAmountCapUi],
         ["Fixed quote cap", String(info.migration.fixedMigrationQuoteAmountEnabled)],
         ["Base threshold", info.migration.migrationBaseThresholdUi],
