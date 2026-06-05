@@ -62,7 +62,7 @@ pub fn handle_partner_withdraw_surplus(ctx: Context<PartnerWithdrawSurplusCtx>) 
 
     // Surplus can only exist when the real quote reserve reached the threshold.
     require!(
-        pool.has_real_quote_surplus(config.migration_quote_threshold),
+        pool.has_real_quote_surplus(config.get_migration_quote_amount_cap()),
         PoolError::NotPermitToDoThisAction
     );
 
@@ -71,7 +71,7 @@ pub fn handle_partner_withdraw_surplus(ctx: Context<PartnerWithdrawSurplusCtx>) 
         pool.is_partner_withdraw_surplus == 0,
         PoolError::SurplusHasBeenWithdraw
     );
-    let total_surplus = pool.get_total_surplus(config.migration_quote_threshold)?;
+    let total_surplus = pool.get_total_surplus(config.get_migration_quote_amount_cap())?;
     let partner_surplus_amount = pool.get_partner_surplus(&config, total_surplus)?;
 
     transfer_token_from_pool_authority(

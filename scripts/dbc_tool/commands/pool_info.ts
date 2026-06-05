@@ -61,6 +61,11 @@ export async function poolInfo(
   const virtualQuoteReserve = toBN(poolState.virtualQuoteReserve ?? 0);
   const totalQuoteReserve = quoteReserve.add(virtualQuoteReserve);
   const migrationQuoteThreshold = toBN(config.migrationQuoteThreshold);
+  const rawMigrationQuoteAmountCap = toBN(config.migrationQuoteAmountCap ?? 0);
+  const fixedMigrationQuoteAmountEnabled = !rawMigrationQuoteAmountCap.isZero();
+  const migrationQuoteAmountCap = fixedMigrationQuoteAmountEnabled
+    ? rawMigrationQuoteAmountCap
+    : migrationQuoteThreshold;
   const migrationBaseThreshold = toBN(config.migrationBaseThreshold);
   const deadlineTimestamp = toBN(poolState.deadlineTimestamp ?? 0);
   const nowTimestamp = new BN(Math.floor(Date.now() / 1000));
@@ -73,7 +78,9 @@ export async function poolInfo(
     : deadlineReached
     ? "deadline"
     : "open";
-  const quoteRemainingToMigration = migrationQuoteThreshold.gt(totalQuoteReserve)
+  const quoteRemainingToMigration = migrationQuoteThreshold.gt(
+    totalQuoteReserve
+  )
     ? migrationQuoteThreshold.sub(totalQuoteReserve)
     : toBN(0);
   const initialBaseSupply = getInitialBaseSupply(config);
@@ -90,11 +97,18 @@ export async function poolInfo(
   const totalQuoteFee = protocolQuoteFee
     .add(partnerQuoteFee)
     .add(creatorQuoteFee);
-  const migrationFeePercentage = toNumber(config.migrationFeePercentage);
+  const migrationFeePercentage = fixedMigrationQuoteAmountEnabled
+    ? 0
+    : toNumber(config.migrationFeePercentage);
   const creatorMigrationFeePercentage = toNumber(
     config.creatorMigrationFeePercentage
   );
-  const migrationFeeBasis = quoteReserve;
+  const migrationFeeBasis = bnMin(quoteReserve, migrationQuoteAmountCap);
+  const partnerOnlyQuoteSurplus = fixedMigrationQuoteAmountEnabled
+    ? quoteReserve.gt(migrationQuoteAmountCap)
+      ? quoteReserve.sub(migrationQuoteAmountCap)
+      : toBN(0)
+    : toBN(0);
   const estimatedMigrationQuoteAmount = divCeil(
     migrationFeeBasis.muln(100 - migrationFeePercentage),
     new BN(100)
@@ -212,6 +226,12 @@ export async function poolInfo(
         migrationQuoteThreshold,
         quoteDecimals
       ),
+      migrationQuoteAmountCapRaw: migrationQuoteAmountCap.toString(),
+      migrationQuoteAmountCapUi: rawAmountToUi(
+        migrationQuoteAmountCap,
+        quoteDecimals
+      ),
+      fixedMigrationQuoteAmountEnabled,
       quoteRemainingRaw: quoteRemainingToMigration.toString(),
       quoteRemainingUi: rawAmountToUi(quoteRemainingToMigration, quoteDecimals),
       migrationBaseThresholdRaw: migrationBaseThreshold.toString(),
@@ -261,6 +281,11 @@ export async function poolInfo(
       partnerMigrationFeePercentage: 100 - creatorMigrationFeePercentage,
       migrationFeeBasisRaw: migrationFeeBasis.toString(),
       migrationFeeBasisUi: rawAmountToUi(migrationFeeBasis, quoteDecimals),
+      partnerOnlyQuoteSurplusRaw: partnerOnlyQuoteSurplus.toString(),
+      partnerOnlyQuoteSurplusUi: rawAmountToUi(
+        partnerOnlyQuoteSurplus,
+        quoteDecimals
+      ),
       estimatedMigrationFeeTotalRaw: estimatedMigrationFeeTotal.toString(),
       estimatedMigrationFeeTotalUi: rawAmountToUi(
         estimatedMigrationFeeTotal,
@@ -371,7 +396,10 @@ async function readDestinationBalances(params: {
   }
 
   const dammPool = deriveDammV2PoolAddress(dammConfig, baseMint, quoteMint);
-  const dammBaseVaultAddress = deriveDammV2TokenVaultAddress(dammPool, baseMint);
+  const dammBaseVaultAddress = deriveDammV2TokenVaultAddress(
+    dammPool,
+    baseMint
+  );
   const dammQuoteVaultAddress = deriveDammV2TokenVaultAddress(
     dammPool,
     quoteMint

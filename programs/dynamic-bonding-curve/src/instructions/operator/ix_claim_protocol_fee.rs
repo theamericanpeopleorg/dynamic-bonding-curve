@@ -87,8 +87,8 @@ pub fn handle_claim_protocol_fee(
     }
 
     let config = ctx.accounts.config.load()?;
-    let token_quote_amount = pool
-        .claim_protocol_quote_fee_and_surplus(max_quote_amount, config.migration_quote_threshold)?;
+    let token_quote_amount =
+        pool.claim_protocol_quote_fee_and_surplus(max_quote_amount, &config)?;
 
     if token_quote_amount > 0 {
         validate_ata_token(

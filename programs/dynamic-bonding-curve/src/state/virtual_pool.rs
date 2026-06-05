@@ -1119,15 +1119,17 @@ impl PoolState {
     pub fn claim_protocol_quote_fee_and_surplus(
         &mut self,
         max_amount: u64,
-        migration_quote_threshold: u64,
+        config: &PoolConfig,
     ) -> Result<u64> {
         let mut amount = self.claim_protocol_quote_fee(max_amount)?;
+        let surplus_quote_threshold = config.get_migration_quote_amount_cap();
 
         if self.is_protocol_withdraw_surplus == 0
-            && self.has_real_quote_surplus(migration_quote_threshold)
+            && !config.is_fixed_migration_quote_amount_enabled()
+            && self.has_real_quote_surplus(surplus_quote_threshold)
         {
             self.update_protocol_withdraw_surplus();
-            let protocol_surplus_amount = self.get_protocol_surplus(migration_quote_threshold)?;
+            let protocol_surplus_amount = self.get_protocol_surplus(surplus_quote_threshold)?;
             amount = amount.safe_add(protocol_surplus_amount)?;
         }
 
@@ -1209,6 +1211,10 @@ impl PoolState {
     }
 
     pub fn get_partner_surplus(&self, config: &PoolConfig, total_surplus: u64) -> Result<u64> {
+        if config.is_fixed_migration_quote_amount_enabled() {
+            return Ok(total_surplus);
+        }
+
         let partner_and_creator_surplus = self.get_partner_and_creator_surplus(total_surplus)?;
 
         let PartnerAndCreatorSplitFee { partner_fee, .. } =

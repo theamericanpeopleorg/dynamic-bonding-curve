@@ -508,8 +508,10 @@ pub struct PoolConfig {
     pub partner_liquidity_vesting_info: LiquidityVestingInfo,
     // Creator liquidity vesting info, only available for DAMM v2 migration
     pub creator_liquidity_vesting_info: LiquidityVestingInfo,
+    /// fixed quote token amount to seed migration liquidity; zero uses migration_quote_threshold
+    pub migration_quote_amount_cap: u64,
     /// Padding for future use
-    pub padding_0: [u8; 14],
+    pub padding_0: [u8; 6],
     /// Previously was protocol and referral fee percent. Beware of tombstone.
     pub padding_1: u16,
     /// Collect fee mode
@@ -749,6 +751,7 @@ impl PoolConfig {
         migration_fee_option: u8,
         swap_base_amount: u64,
         migration_quote_threshold: u64,
+        migration_quote_amount_cap: u64,
         migration_base_threshold: u64,
         migration_sqrt_price: u128,
         sqrt_start_price: u128,
@@ -798,6 +801,7 @@ impl PoolConfig {
 
         self.locked_vesting_config = locked_vesting_params.to_locked_vesting_config();
         self.migration_fee_option = migration_fee_option;
+        self.migration_quote_amount_cap = migration_quote_amount_cap;
         self.fixed_token_supply_flag = fixed_token_supply_flag;
         self.pre_migration_token_supply = pre_migration_token_supply;
         self.post_migration_token_supply = post_migration_token_supply;
@@ -835,13 +839,36 @@ impl PoolConfig {
         Ok(token_authority)
     }
 
-    pub fn get_migration_quote_amount_for_config(&self) -> Result<MigrationAmount> {
-        PoolConfig::get_migration_quote_amount(
-            self.migration_quote_threshold,
+    pub fn get_post_fee_migration_quote_amount(&self) -> Result<MigrationAmount> {
+        PoolConfig::calculate_post_fee_migration_quote_amount(
+            self.get_migration_quote_amount_cap(),
             self.migration_fee_percentage,
         )
     }
-    pub fn get_migration_quote_amount(
+
+    pub fn get_effective_migration_quote_amount_cap(
+        migration_quote_threshold: u64,
+        migration_quote_amount_cap: u64,
+    ) -> u64 {
+        if migration_quote_amount_cap > 0 {
+            migration_quote_amount_cap
+        } else {
+            migration_quote_threshold
+        }
+    }
+
+    pub fn is_fixed_migration_quote_amount_enabled(&self) -> bool {
+        self.migration_quote_amount_cap > 0
+    }
+
+    pub fn get_migration_quote_amount_cap(&self) -> u64 {
+        PoolConfig::get_effective_migration_quote_amount_cap(
+            self.migration_quote_threshold,
+            self.migration_quote_amount_cap,
+        )
+    }
+
+    pub fn calculate_post_fee_migration_quote_amount(
         migration_quote_threshold: u64,
         migration_fee_percentage: u8,
     ) -> Result<MigrationAmount> {
@@ -856,14 +883,14 @@ impl PoolConfig {
     }
 
     pub fn get_migration_fee_distribution(&self) -> Result<MigrationFeeDistribution> {
-        self.get_migration_fee_distribution_for_threshold(self.migration_quote_threshold)
+        self.get_migration_fee_distribution_for_threshold(self.get_migration_quote_amount_cap())
     }
 
     pub fn get_migration_fee_distribution_for_threshold(
         &self,
         migration_quote_threshold: u64,
     ) -> Result<MigrationFeeDistribution> {
-        let MigrationAmount { fee, .. } = PoolConfig::get_migration_quote_amount(
+        let MigrationAmount { fee, .. } = PoolConfig::calculate_post_fee_migration_quote_amount(
             migration_quote_threshold,
             self.migration_fee_percentage,
         )?;

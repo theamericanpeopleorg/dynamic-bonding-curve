@@ -490,6 +490,7 @@ export function designCurve(
     tokenType: 0, // spl_token
     tokenDecimal: tokenBaseDecimal,
     migrationQuoteThreshold: migrationQuoteThresholdWithDecimals,
+    migrationQuoteAmountCap: new BN(0),
     partnerLiquidityPercentage: 0,
     creatorLiquidityPercentage: 0,
     partnerPermanentLockedLiquidityPercentage: 100,
@@ -656,6 +657,7 @@ export function designGraphCurve(
     tokenType: 0, // spl_token
     tokenDecimal: tokenBaseDecimal,
     migrationQuoteThreshold,
+    migrationQuoteAmountCap: new BN(0),
     partnerLiquidityPercentage: 0,
     creatorLiquidityPercentage: 0,
     partnerPermanentLockedLiquidityPercentage: 100,

@@ -52,6 +52,11 @@ pub fn handle_creator_withdraw_surplus(ctx: Context<CreatorWithdrawSurplusCtx>) 
     let mut pool = pool_loader.load_mut()?;
 
     require!(
+        !config.is_fixed_migration_quote_amount_enabled(),
+        PoolError::NotPermitToDoThisAction
+    );
+
+    require!(
         pool.quote_vault.eq(&ctx.accounts.quote_vault.key()),
         ErrorCode::ConstraintHasOne
     );
@@ -62,7 +67,7 @@ pub fn handle_creator_withdraw_surplus(ctx: Context<CreatorWithdrawSurplusCtx>) 
 
     // Surplus can only exist when the real quote reserve reached the threshold.
     require!(
-        pool.has_real_quote_surplus(config.migration_quote_threshold),
+        pool.has_real_quote_surplus(config.get_migration_quote_amount_cap()),
         PoolError::NotPermitToDoThisAction
     );
 
@@ -71,7 +76,7 @@ pub fn handle_creator_withdraw_surplus(ctx: Context<CreatorWithdrawSurplusCtx>) 
         pool.is_creator_withdraw_surplus == 0,
         PoolError::SurplusHasBeenWithdraw
     );
-    let total_surplus = pool.get_total_surplus(config.migration_quote_threshold)?;
+    let total_surplus = pool.get_total_surplus(config.get_migration_quote_amount_cap())?;
     let creator_surplus_amount = pool.get_creator_surplus(&config, total_surplus)?;
 
     transfer_token_from_pool_authority(

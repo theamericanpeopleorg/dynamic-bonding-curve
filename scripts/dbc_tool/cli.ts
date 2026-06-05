@@ -49,6 +49,7 @@ export async function runCli() {
     const result = await createConfig({
       rpcUrl: args.rpcUrl,
       quoteMint: args.quoteMint ? new PublicKey(args.quoteMint) : undefined,
+      migrationQuoteAmountCap: args.migrationQuoteAmountCap,
       migrationFeePercentage: args.migrationFeePercentage,
       creatorMigrationFeePercentage: args.creatorMigrationFeePercentage,
     });
@@ -144,6 +145,7 @@ export function parseCliArgs(argv: string[]) {
   let command: string | undefined;
   let rpcUrl: string | undefined;
   let quoteMint: string | undefined;
+  let migrationQuoteAmountCap: string | undefined;
   let migrationFeePercentage: number | undefined;
   let migrationFeeReceiver: string | undefined;
   let creatorMigrationFeePercentage: number | undefined;
@@ -179,6 +181,23 @@ export function parseCliArgs(argv: string[]) {
 
     if (arg.startsWith("--quote-mint=")) {
       quoteMint = arg.slice("--quote-mint=".length);
+      continue;
+    }
+
+    if (arg === "--migration-quote-amount-cap") {
+      migrationQuoteAmountCap = argv[++i];
+      if (!migrationQuoteAmountCap) {
+        throw new Error(
+          "--migration-quote-amount-cap requires a raw quote amount"
+        );
+      }
+      continue;
+    }
+
+    if (arg.startsWith("--migration-quote-amount-cap=")) {
+      migrationQuoteAmountCap = arg.slice(
+        "--migration-quote-amount-cap=".length
+      );
       continue;
     }
 
@@ -291,6 +310,7 @@ export function parseCliArgs(argv: string[]) {
     command,
     creatorMigrationFeePercentage,
     deadlineTimestamp,
+    migrationQuoteAmountCap,
     migrationFeeReceiver,
     migrationFeePercentage,
     minimumBaseAmountOut,

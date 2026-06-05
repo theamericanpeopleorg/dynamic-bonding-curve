@@ -180,6 +180,9 @@ async function route(
       body.migrationFeePercentage,
       "migrationFeePercentage"
     );
+    const migrationQuoteAmountCap = readOptionalString(
+      body.migrationQuoteAmountCap
+    );
     const creatorMigrationFeePercentage = readOptionalPercentage(
       body.creatorMigrationFeePercentage,
       "creatorMigrationFeePercentage"
@@ -187,6 +190,7 @@ async function route(
     const result = await createConfig({
       rpcUrl: options.rpcUrl,
       quoteMint: quoteMint ?? MAINNET_USDC_MINT,
+      migrationQuoteAmountCap,
       migrationFeePercentage,
       creatorMigrationFeePercentage,
     });
@@ -407,7 +411,10 @@ function readOptionalString(value: unknown): string | undefined {
   return value.trim();
 }
 
-function readOptionalPercentage(value: unknown, name: string): number | undefined {
+function readOptionalPercentage(
+  value: unknown,
+  name: string
+): number | undefined {
   const stringValue = readOptionalString(value);
   if (stringValue == null) {
     return undefined;
@@ -918,6 +925,10 @@ function renderHtml(options: Options): string {
           <input id="quoteMintInput" autocomplete="off" spellcheck="false">
         </div>
         <div>
+          <label for="migrationQuoteAmountCapInput">Migration quote cap raw</label>
+          <input id="migrationQuoteAmountCapInput" inputmode="numeric" autocomplete="off" placeholder="0">
+        </div>
+        <div>
           <label for="migrationFeeInput">Migration fee pct</label>
           <input id="migrationFeeInput" inputmode="numeric" autocomplete="off" placeholder="0">
         </div>
@@ -1054,6 +1065,7 @@ function renderHtml(options: Options): string {
       poolInput: document.getElementById("poolInput"),
       watchButton: document.getElementById("watchButton"),
       quoteMintInput: document.getElementById("quoteMintInput"),
+      migrationQuoteAmountCapInput: document.getElementById("migrationQuoteAmountCapInput"),
       migrationFeeInput: document.getElementById("migrationFeeInput"),
       creatorMigrationFeeInput: document.getElementById("creatorMigrationFeeInput"),
       configInput: document.getElementById("configInput"),
@@ -1086,6 +1098,7 @@ function renderHtml(options: Options): string {
     function init() {
       el.rpcLabel.textContent = RPC_URL;
       el.quoteMintInput.value = localStorage.getItem("dbc.ui.quoteMint") || DEFAULT_QUOTE_MINT;
+      el.migrationQuoteAmountCapInput.value = localStorage.getItem("dbc.ui.migrationQuoteAmountCap") || "0";
       el.migrationFeeInput.value = localStorage.getItem("dbc.ui.migrationFeePercentage") || "0";
       el.creatorMigrationFeeInput.value = localStorage.getItem("dbc.ui.creatorMigrationFeePercentage") || "0";
       el.configInput.value = localStorage.getItem("dbc.ui.config") || "";
@@ -1102,6 +1115,7 @@ function renderHtml(options: Options): string {
       });
       el.poolInput.addEventListener("change", () => setPool(el.poolInput.value.trim()));
       el.quoteMintInput.addEventListener("change", () => localStorage.setItem("dbc.ui.quoteMint", el.quoteMintInput.value.trim()));
+      el.migrationQuoteAmountCapInput.addEventListener("change", () => localStorage.setItem("dbc.ui.migrationQuoteAmountCap", el.migrationQuoteAmountCapInput.value.trim()));
       el.migrationFeeInput.addEventListener("change", () => localStorage.setItem("dbc.ui.migrationFeePercentage", el.migrationFeeInput.value.trim()));
       el.creatorMigrationFeeInput.addEventListener("change", () => localStorage.setItem("dbc.ui.creatorMigrationFeePercentage", el.creatorMigrationFeeInput.value.trim()));
       el.configInput.addEventListener("change", () => localStorage.setItem("dbc.ui.config", el.configInput.value.trim()));
@@ -1179,13 +1193,17 @@ function renderHtml(options: Options): string {
     async function createConfigAction() {
       await withButton(el.createConfigButton, async () => {
         const quoteMint = el.quoteMintInput.value.trim() || DEFAULT_QUOTE_MINT;
+        const migrationQuoteAmountCap =
+          el.migrationQuoteAmountCapInput.value.trim() || "0";
         const migrationFeePercentage = el.migrationFeeInput.value.trim() || "0";
         const creatorMigrationFeePercentage =
           el.creatorMigrationFeeInput.value.trim() || "0";
+        localStorage.setItem("dbc.ui.migrationQuoteAmountCap", migrationQuoteAmountCap);
         localStorage.setItem("dbc.ui.migrationFeePercentage", migrationFeePercentage);
         localStorage.setItem("dbc.ui.creatorMigrationFeePercentage", creatorMigrationFeePercentage);
         const result = await postJson("/api/create-config", {
           quoteMint,
+          migrationQuoteAmountCap,
           migrationFeePercentage,
           creatorMigrationFeePercentage,
         });
@@ -1378,6 +1396,8 @@ function renderHtml(options: Options): string {
         ["Has locked vesting", String(info.migration.hasLockedVesting)],
         ["Migrated", String(info.migration.isMigrated)],
         ["Quote threshold", info.migration.migrationQuoteThresholdUi],
+        ["Migration quote cap", info.migration.migrationQuoteAmountCapUi],
+        ["Fixed quote cap", String(info.migration.fixedMigrationQuoteAmountEnabled)],
         ["Base threshold", info.migration.migrationBaseThresholdUi],
         ["Creator fee pct", info.fees.creatorTradingFeePercentage],
         ["Migration fee pct", info.fees.migrationFeePercentage],
@@ -1396,6 +1416,7 @@ function renderHtml(options: Options): string {
       ]);
       renderKv(el.feeEstimateDetails, [
         ["Basis amount", formatTokenAmount(info.fees.migrationFeeBasisUi, "quote")],
+        ["Partner-only surplus", formatTokenAmount(info.fees.partnerOnlyQuoteSurplusUi, "quote")],
         ["Migration fee pct", pct(info.fees.migrationFeePercentage)],
         ["Creator split", pct(info.fees.creatorMigrationFeePercentage)],
         ["Partner split", pct(info.fees.partnerMigrationFeePercentage)],

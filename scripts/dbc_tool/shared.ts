@@ -65,6 +65,7 @@ export type CreateConfigOptions = {
   feeClaimer?: PublicKey;
   leftoverReceiver?: PublicKey;
   quoteMint?: PublicKey;
+  migrationQuoteAmountCap?: BN | number | string;
   migrationFeePercentage?: number;
   creatorMigrationFeePercentage?: number;
 };
@@ -159,6 +160,7 @@ export function loadKeypair(keypairPath = process.env.KEYPAIR_PATH): Keypair {
 
 export function buildMschfCurveConfig(
   options: {
+    migrationQuoteAmountCap?: BN | number | string;
     migrationFeePercentage?: number;
     creatorMigrationFeePercentage?: number;
   } = {}
@@ -263,13 +265,17 @@ export function buildMschfCurveConfig(
   return {
     ...config,
     migrationQuoteThreshold,
+    migrationQuoteAmountCap:
+      options.migrationQuoteAmountCap == null
+        ? new BN(0)
+        : new BN(options.migrationQuoteAmountCap),
     sqrtStartPrice,
     tokenSupply: {
       preMigrationTokenSupply: totalSupply,
       postMigrationTokenSupply: totalSupply,
     },
     curve,
-  };
+  } as ConfigParameters & { migrationQuoteAmountCap: BN };
 }
 
 export async function buildClient(rpcUrl?: string) {

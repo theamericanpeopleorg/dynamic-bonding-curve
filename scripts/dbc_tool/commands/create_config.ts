@@ -22,6 +22,7 @@ export async function createConfig(
   const transaction = await program.methods
     .createConfig(
       buildMschfCurveConfig({
+        migrationQuoteAmountCap: options.migrationQuoteAmountCap,
         migrationFeePercentage: options.migrationFeePercentage,
         creatorMigrationFeePercentage: options.creatorMigrationFeePercentage,
       })

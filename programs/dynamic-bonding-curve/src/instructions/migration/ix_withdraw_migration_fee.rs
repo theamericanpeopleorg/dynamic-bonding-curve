@@ -98,7 +98,7 @@ pub fn handle_withdraw_migration_fee(
         PoolError::NotPermitToDoThisAction
     );
     let effective_migration_quote_threshold =
-        pool.effective_migration_quote_threshold(config.migration_quote_threshold);
+        pool.effective_migration_quote_threshold(config.get_migration_quote_amount_cap());
     let MigrationFeeDistribution {
         creator_migration_fee,
         partner_migration_fee,

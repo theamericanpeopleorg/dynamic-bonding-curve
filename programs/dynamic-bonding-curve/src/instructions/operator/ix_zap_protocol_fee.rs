@@ -118,8 +118,7 @@ pub fn handle_zap_protocol_fee(ctx: Context<ZapProtocolFee>, max_amount: u64) ->
         );
         (base_amount, treasury_token_quote_address)
     } else {
-        let quote_amount = pool
-            .claim_protocol_quote_fee_and_surplus(max_amount, config.migration_quote_threshold)?;
+        let quote_amount = pool.claim_protocol_quote_fee_and_surplus(max_amount, &config)?;
 
         let treasury_token_base_address = get_associated_token_address_with_program_id(
             &treasury::ID,

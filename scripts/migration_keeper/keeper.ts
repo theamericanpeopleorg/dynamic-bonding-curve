@@ -286,6 +286,7 @@ export async function runKeeper(options: KeeperOptions): Promise<KeeperResult> {
 type SaleProgressConfig = {
   config: PublicKey;
   migrationQuoteThreshold: bigint;
+  migrationQuoteAmountCap: bigint;
   hasLockedVesting: boolean;
   quoteDecimals: number;
 };
@@ -318,6 +319,10 @@ async function getSaleProgressLogFields(params: {
     saleProgressConfig = {
       config: configPublicKey,
       migrationQuoteThreshold: toBigInt(config.migrationQuoteThreshold),
+      migrationQuoteAmountCap:
+        toBigInt(config.migrationQuoteAmountCap ?? 0) === BigInt(0)
+          ? toBigInt(config.migrationQuoteThreshold)
+          : toBigInt(config.migrationQuoteAmountCap),
       hasLockedVesting: hasLockedVesting(config),
       quoteDecimals: await retryRpc({
         operation: "fetchQuoteDecimalsForSaleProgress",
@@ -388,6 +393,12 @@ async function getSaleProgressLogFields(params: {
         saleProgressConfig.migrationQuoteThreshold.toString(),
       migrationQuoteThresholdUi: rawAmountToUi(
         saleProgressConfig.migrationQuoteThreshold,
+        saleProgressConfig.quoteDecimals
+      ),
+      migrationQuoteAmountCapRaw:
+        saleProgressConfig.migrationQuoteAmountCap.toString(),
+      migrationQuoteAmountCapUi: rawAmountToUi(
+        saleProgressConfig.migrationQuoteAmountCap,
         saleProgressConfig.quoteDecimals
       ),
       deadlineTimestampRaw: deadlineTimestamp.toString(),

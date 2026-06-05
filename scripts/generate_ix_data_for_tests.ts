@@ -124,6 +124,7 @@ async function createConfigSplToken(
     tokenDecimal: 6,
     // 5 SOL
     migrationQuoteThreshold: new BN(5e9),
+    migrationQuoteAmountCap: new BN(0),
     partnerLiquidityPercentage: 20,
     creatorLiquidityPercentage: 30,
     partnerPermanentLockedLiquidityPercentage: 10,
@@ -203,6 +204,7 @@ async function createConfigToken2022(
     tokenDecimal: 6,
     // 5 SOL
     migrationQuoteThreshold: new BN(5e9),
+    migrationQuoteAmountCap: new BN(0),
     partnerLiquidityPercentage: 20,
     creatorLiquidityPercentage: 30,
     partnerPermanentLockedLiquidityPercentage: 10,
@@ -286,6 +288,7 @@ async function createConfigSplTokenForSwapDamm(
     tokenType: 0, // spl_token
     tokenDecimal: 6,
     migrationQuoteThreshold: new BN(5e9),
+    migrationQuoteAmountCap: new BN(0),
     partnerLiquidityPercentage: 1,
     creatorLiquidityPercentage: 1,
     partnerPermanentLockedLiquidityPercentage: 94,
@@ -369,6 +372,7 @@ async function createConfigSplTokenForSwapDammv2(
     tokenType: 0, // spl_token
     tokenDecimal: 6,
     migrationQuoteThreshold: new BN(5e9),
+    migrationQuoteAmountCap: new BN(0),
     partnerLiquidityPercentage: 1,
     creatorLiquidityPercentage: 1,
     partnerPermanentLockedLiquidityPercentage: 94,
@@ -451,6 +455,7 @@ async function createConfigSplTokenWithBaseFeeParameters(
     tokenDecimal: 6,
     // 5 SOL
     migrationQuoteThreshold: new BN(5e9),
+    migrationQuoteAmountCap: new BN(0),
     partnerLiquidityPercentage: 20,
     creatorLiquidityPercentage: 30,
     partnerPermanentLockedLiquidityPercentage: 10,

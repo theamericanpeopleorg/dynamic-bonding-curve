@@ -257,7 +257,7 @@ pub fn handle_migrate_meteora_damm<'info>(
     let initial_base_vault_amount = ctx.accounts.base_vault.amount;
     let protocol_and_partner_base_fee = virtual_pool.get_protocol_and_trading_base_fee()?;
     let effective_migration_quote_threshold =
-        virtual_pool.effective_migration_quote_threshold(config.migration_quote_threshold);
+        virtual_pool.effective_migration_quote_threshold(config.get_migration_quote_amount_cap());
     require!(
         effective_migration_quote_threshold > 0,
         PoolError::InsufficientLiquidityForMigration

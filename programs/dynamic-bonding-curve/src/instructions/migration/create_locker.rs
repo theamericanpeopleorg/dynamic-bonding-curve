@@ -124,7 +124,8 @@ pub fn handle_create_locker<'info>(ctx: Context<'info, CreateLockerCtx<'info>>) 
         );
         let (migration_base_amount, migration_quote_amount) = liquidity_handler
             .get_included_protocol_fee_migration_amounts_1(
-                virtual_pool.quote_reserve,
+                virtual_pool
+                    .effective_migration_quote_threshold(config.get_migration_quote_amount_cap()),
                 config.migration_fee_percentage,
             )?;
         require!(

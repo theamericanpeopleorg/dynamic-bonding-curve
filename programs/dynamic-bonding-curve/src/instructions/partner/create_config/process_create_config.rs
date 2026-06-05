@@ -49,6 +49,7 @@ pub struct ConfigParameters {
     pub creator_liquidity_percentage: u8,
     pub creator_permanent_locked_liquidity_percentage: u8,
     pub migration_quote_threshold: u64,
+    pub migration_quote_amount_cap: u64,
     pub sqrt_start_price: u128,
     pub locked_vesting: LockedVestingParams,
     pub migration_fee_option: u8,
@@ -496,6 +497,17 @@ impl ConfigParameters {
             self.migration_quote_threshold > 0,
             PoolError::InvalidQuoteThreshold
         );
+        if self.migration_quote_amount_cap > 0 {
+            require!(
+                self.migration_quote_amount_cap <= self.migration_quote_threshold,
+                PoolError::InvalidQuoteThreshold
+            );
+            require!(
+                self.migration_fee.fee_percentage == 0
+                    && self.migration_fee.creator_fee_percentage == 0,
+                PoolError::InvalidMigratorFeePercentage
+            );
+        }
 
         // validate vesting params
         self.locked_vesting.validate()?;
@@ -571,6 +583,7 @@ pub fn process_create_config(
         creator_liquidity_percentage,
         creator_permanent_locked_liquidity_percentage,
         migration_quote_threshold,
+        migration_quote_amount_cap,
         sqrt_start_price,
         locked_vesting,
         migration_fee_option,
@@ -612,9 +625,13 @@ pub fn process_create_config(
         migrated_collect_fee_mode,
         migration_sqrt_price,
     );
+    let effective_migration_quote_amount_cap = PoolConfig::get_effective_migration_quote_amount_cap(
+        migration_quote_threshold,
+        migration_quote_amount_cap,
+    );
     let (included_protocol_fee_migration_base_amount, included_protocol_fee_migration_quote_amount) =
         liquidity_handler.get_included_protocol_fee_migration_amounts_1(
-            migration_quote_threshold,
+            effective_migration_quote_amount_cap,
             migration_fee.fee_percentage,
         )?;
 
@@ -716,6 +733,7 @@ pub fn process_create_config(
         migration_fee_option,
         swap_base_amount,
         migration_quote_threshold,
+        migration_quote_amount_cap,
         included_protocol_fee_migration_base_amount,
         migration_sqrt_price,
         sqrt_start_price,

@@ -572,7 +572,7 @@ pub fn handle_migrate_damm_v2<'info>(ctx: Context<'info, MigrateDammV2Ctx<'info>
     );
 
     let effective_migration_quote_threshold =
-        virtual_pool.effective_migration_quote_threshold(config.migration_quote_threshold);
+        virtual_pool.effective_migration_quote_threshold(config.get_migration_quote_amount_cap());
     require!(
         effective_migration_quote_threshold > 0,
         PoolError::InsufficientLiquidityForMigration

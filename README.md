@@ -38,6 +38,7 @@ Partner can specify these parameters when they create a configuration on all the
 - `creator_lp_percentage`: the percentage of LP that creator can claim after token is migrated.
 - `creator_locked_lp_percentage`: the percentage of LP that creator will be locked after token is migrated.
 - `migration_quote_threshold`: the threhold for quote token, that after virtual pool reserve get such quote token amount, the token will graduate from the launch pool and will be migrated.
+- `migration_quote_amount_cap`: optional fixed quote token amount to seed migrated liquidity. If zero, migration uses the legacy `migration_quote_threshold` basis. If non-zero, migrated liquidity uses `min(real_quote_reserve, migration_quote_amount_cap)` and quote above the cap is partner-only surplus.
 - `fee_claimer`: the address of partner that can claim trading fees from the virtual pools as well as fees from the locked LPs.
 - `owner`: owner of the configuration.
 - `quote_mint`: the quote mint address that virtual pool will support.
@@ -47,7 +48,7 @@ Partner can specify these parameters when they create a configuration on all the
 - `token_supply`: when the fields are specified, token will have fixed supply in pre and post migration, leftover will be returned to leftover_receiver (configured in config key)
 - `creator_trading_fee_percentage`: the percentage of trading fee and surplus pool creator can get for a pool
 - `token_update_authority`: the option to allow creator/partner to config token authority, 0: creator can update token metadata, 1: immutable, 2: partner can update token metadata, 3: creator can update token metadata and mint token, 4: partner can update token metadata and mint token. Options 3 and 4 only valid for transfer-hook configs/pools.
-- `migration_fee`: the option to allow partner can config migration fee from migration quote threshold. Migration fee can be shared between partner and creator
+- `migration_fee`: the option to allow partner can config migration fee from migration quote threshold. Migration fee can be shared between partner and creator. Fixed `migration_quote_amount_cap` configs must set migration fee percentages to zero.
 - `sqrt_start_price`: square root of min price in the bonding curve for the virtual pools.
 - `curve`: an array of square price and liquidity, that defines the liquidity distribution for the virtual pools.
 

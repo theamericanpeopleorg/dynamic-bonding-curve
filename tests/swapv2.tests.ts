@@ -6,6 +6,7 @@ import {
   createMeteoraDammV2Metadata,
   createPoolWithSplToken,
   migrateToDammV2,
+  partnerWithdrawSurplus,
   swap2,
   SwapMode,
   SwapParams2,
@@ -27,7 +28,7 @@ import {
   startSvm,
   U64_MAX,
 } from "./utils";
-import { getDammV2Pool, getVirtualPool } from "./utils/fetcher";
+import { getConfig, getDammV2Pool, getVirtualPool } from "./utils/fetcher";
 import { VirtualCurveProgram } from "./utils/types";
 
 import {
@@ -584,7 +585,14 @@ describe("Swap V2", () => {
     expect(new BN(userOutTokenBal.toString()).eq(outAmount)).to.be.true;
   });
 
-  async function createVirtualSwapFixture(collectFeeMode = 1, migrationOption = 0) {
+  async function createVirtualSwapFixture(
+    collectFeeMode = 1,
+    migrationOption = 0,
+    opts: {
+      migrationQuoteAmountCapDivisor?: number;
+      migrationFee?: { feePercentage: number; creatorFeePercentage: number };
+    } = {}
+  ) {
     const totalTokenSupply = 1_000_000_000;
     const percentageSupplyOnMigration = 10;
     const migrationQuoteThreshold = 300;
@@ -597,7 +605,12 @@ describe("Swap V2", () => {
       numberOfPeriod: new BN(0),
       cliffUnlockAmount: new BN(0),
     };
-    const quoteMint = createToken(svm, admin, admin.publicKey, tokenQuoteDecimal);
+    const quoteMint = createToken(
+      svm,
+      admin,
+      admin.publicKey,
+      tokenQuoteDecimal
+    );
     const instructionParams = designCurve(
       totalTokenSupply,
       percentageSupplyOnMigration,
@@ -608,11 +621,17 @@ describe("Swap V2", () => {
       0,
       collectFeeMode,
       lockedVesting,
-      {
+      opts.migrationFee ?? {
         feePercentage: 0,
         creatorFeePercentage: 0,
       }
     );
+    if (opts.migrationQuoteAmountCapDivisor) {
+      instructionParams.migrationQuoteAmountCap =
+        instructionParams.migrationQuoteThreshold.divn(
+          opts.migrationQuoteAmountCapDivisor
+        );
+    }
 
     const config = await createConfig(svm, program, {
       payer: partner,
@@ -636,6 +655,13 @@ describe("Swap V2", () => {
 
     return { config, instructionParams, quoteMint, virtualPool };
   }
+
+  it("stores zero migration quote cap as legacy sentinel", async () => {
+    const { config } = await createVirtualSwapFixture();
+    const configState = getConfig(svm, program, config);
+
+    expect(configState.migrationQuoteAmountCap.toString()).eq("0");
+  });
 
   it("virtual_swap2 exact in advances virtual quote without quote transfer", async () => {
     const { config, instructionParams, virtualPool } =
@@ -828,6 +854,152 @@ describe("Swap V2", () => {
       beforeMigrationSqrtPrice.toString()
     );
     expect(getVirtualPool(svm, program, virtualPool).isMigrated).eq(1);
+  });
+
+  it("fixed migration quote cap migrates the cap and leaves partner-only quote surplus", async () => {
+    const { config, instructionParams, quoteMint, virtualPool } =
+      await createVirtualSwapFixture(1, 1, {
+        migrationQuoteAmountCapDivisor: 2,
+      });
+    let virtualPoolState = getVirtualPool(svm, program, virtualPool);
+    const migrationQuoteCap = instructionParams.migrationQuoteAmountCap!;
+    const partnerSurplus =
+      instructionParams.migrationQuoteThreshold.sub(migrationQuoteCap);
+    const configState = getConfig(svm, program, config);
+    expect(configState.migrationQuoteAmountCap.toString()).eq(
+      migrationQuoteCap.toString()
+    );
+
+    mintSplTokenTo(
+      svm,
+      user,
+      quoteMint,
+      admin,
+      user.publicKey,
+      instructionParams.migrationQuoteThreshold.toNumber()
+    );
+
+    await swap2(svm, program, {
+      config,
+      payer: user,
+      pool: virtualPool,
+      inputTokenMint: quoteMint,
+      outputTokenMint: virtualPoolState.baseMint,
+      amount0: instructionParams.migrationQuoteThreshold,
+      amount1: new BN(0),
+      referralTokenAccount: null,
+      swapMode: SwapMode.ExactIn,
+    });
+
+    virtualPoolState = getVirtualPool(svm, program, virtualPool);
+    expect(virtualPoolState.quoteReserve.toString()).eq(
+      instructionParams.migrationQuoteThreshold.toString()
+    );
+
+    await createMeteoraDammV2Metadata(svm, program, {
+      payer: admin,
+      virtualPool,
+      config,
+    });
+    await migrateToDammV2(svm, program, {
+      payer: admin,
+      virtualPool,
+      dammConfig: dammV2Config,
+    });
+
+    await partnerWithdrawSurplus(svm, program, {
+      feeClaimer: partner,
+      virtualPool,
+    });
+
+    const partnerQuoteAccount = getAssociatedTokenAddressSync(
+      quoteMint,
+      partner.publicKey,
+      false
+    );
+    const partnerQuoteBalance = getTokenAccount(
+      svm,
+      partnerQuoteAccount
+    ).amount;
+    expect(partnerQuoteBalance.toString()).eq(partnerSurplus.toString());
+  });
+
+  it("fixed migration quote cap migrates all real quote when real quote is below the cap", async () => {
+    const { config, instructionParams, quoteMint, virtualPool } =
+      await createVirtualSwapFixture(1, 1, {
+        migrationQuoteAmountCapDivisor: 2,
+      });
+    let virtualPoolState = getVirtualPool(svm, program, virtualPool);
+    const realQuoteAmount = instructionParams.migrationQuoteAmountCap!.divn(2);
+
+    mintSplTokenTo(
+      svm,
+      user,
+      quoteMint,
+      admin,
+      user.publicKey,
+      realQuoteAmount.toNumber()
+    );
+
+    await swap2(svm, program, {
+      config,
+      payer: user,
+      pool: virtualPool,
+      inputTokenMint: quoteMint,
+      outputTokenMint: virtualPoolState.baseMint,
+      amount0: realQuoteAmount,
+      amount1: new BN(0),
+      referralTokenAccount: null,
+      swapMode: SwapMode.ExactIn,
+    });
+
+    await virtualSwap2(svm, program, {
+      config,
+      payer: user,
+      virtualSwapAuthority: operator,
+      pool: virtualPool,
+      amount0: instructionParams.migrationQuoteThreshold,
+      amount1: new BN(0),
+      swapMode: SwapMode.PartialFill,
+    });
+
+    virtualPoolState = getVirtualPool(svm, program, virtualPool);
+    expect(virtualPoolState.quoteReserve.toString()).eq(
+      realQuoteAmount.toString()
+    );
+    expect(virtualPoolState.virtualQuoteReserve.toString()).eq(
+      instructionParams.migrationQuoteThreshold.sub(realQuoteAmount).toString()
+    );
+
+    await createMeteoraDammV2Metadata(svm, program, {
+      payer: admin,
+      virtualPool,
+      config,
+    });
+    await migrateToDammV2(svm, program, {
+      payer: admin,
+      virtualPool,
+      dammConfig: dammV2Config,
+    });
+
+    await expectThrowsAsync(async () => {
+      await partnerWithdrawSurplus(svm, program, {
+        feeClaimer: partner,
+        virtualPool,
+      });
+    }, getDbcProgramErrorCodeHexString("NotPermitToDoThisAction"));
+  });
+
+  it("rejects fixed migration quote cap with migration fee percentage", async () => {
+    await expectThrowsAsync(async () => {
+      await createVirtualSwapFixture(1, 1, {
+        migrationQuoteAmountCapDivisor: 2,
+        migrationFee: {
+          feePercentage: 1,
+          creatorFeePercentage: 0,
+        },
+      });
+    }, getDbcProgramErrorCodeHexString("InvalidMigratorFeePercentage"));
   });
 
   it("all-virtual completion rejects migration because no real quote funds liquidity", async () => {

@@ -125,7 +125,7 @@ pub fn handle_claim_protocol_fee2<'info>(
         }
         pool.claim_protocol_base_fee(max_amount)?
     } else {
-        pool.claim_protocol_quote_fee_and_surplus(max_amount, config.migration_quote_threshold)?
+        pool.claim_protocol_quote_fee_and_surplus(max_amount, &config)?
     };
 
     if amount == 0 {

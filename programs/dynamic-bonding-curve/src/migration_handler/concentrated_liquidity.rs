@@ -81,10 +81,11 @@ impl MigrationHandler for ConcentratedLiquidity {
         migration_quote_threshold: u64,
         migration_fee_percentage: u8,
     ) -> Result<(u64, u64)> {
-        let MigrationAmount { quote_amount, .. } = PoolConfig::get_migration_quote_amount(
-            migration_quote_threshold,
-            migration_fee_percentage,
-        )?;
+        let MigrationAmount { quote_amount, .. } =
+            PoolConfig::calculate_post_fee_migration_quote_amount(
+                migration_quote_threshold,
+                migration_fee_percentage,
+            )?;
 
         // calculate to L firsty
         let liquidity = get_initial_liquidity_from_delta_quote(
@@ -135,7 +136,7 @@ impl MigrationHandler for ConcentratedLiquidity {
         let MigrationAmount {
             quote_amount,
             fee: _,
-        } = PoolConfig::get_migration_quote_amount(
+        } = PoolConfig::calculate_post_fee_migration_quote_amount(
             migration_quote_threshold,
             migration_fee_percentage,
         )?;

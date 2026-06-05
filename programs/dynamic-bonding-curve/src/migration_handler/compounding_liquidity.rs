@@ -131,10 +131,11 @@ impl MigrationHandler for CompoundingLiquidity {
         migration_quote_threshold: u64,
         migration_fee_percentage: u8,
     ) -> Result<(u64, u64)> {
-        let MigrationAmount { quote_amount, .. } = PoolConfig::get_migration_quote_amount(
-            migration_quote_threshold,
-            migration_fee_percentage,
-        )?;
+        let MigrationAmount { quote_amount, .. } =
+            PoolConfig::calculate_post_fee_migration_quote_amount(
+                migration_quote_threshold,
+                migration_fee_percentage,
+            )?;
 
         let base_amount =
             get_constant_product_base_from_quote(quote_amount, self.migration_sqrt_price)?;
@@ -157,7 +158,7 @@ impl MigrationHandler for CompoundingLiquidity {
         let MigrationAmount {
             quote_amount,
             fee: _,
-        } = PoolConfig::get_migration_quote_amount(
+        } = PoolConfig::calculate_post_fee_migration_quote_amount(
             migration_quote_threshold,
             migration_fee_percentage,
         )?;
