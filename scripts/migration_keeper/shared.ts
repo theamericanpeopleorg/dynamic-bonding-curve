@@ -54,7 +54,7 @@ export type KeeperOptions = {
   keypairPath?: string;
   statusIntervalMs?: number;
   withdrawLeftover?: boolean;
-  migrationFeeReceiver?: PublicKey;
+  surplusReceiver?: PublicKey;
 };
 
 export type RpcRetryInfo = {
@@ -85,17 +85,17 @@ export type KeeperResult = {
   leftoverReceiver?: PublicKey;
   leftoverBaseAccount?: PublicKey;
   leftoverWithdrawError?: string;
-  partnerMigrationFeeWithdrawStatus?:
+  partnerSurplusWithdrawStatus?:
     | "withdrawn"
     | "already_withdrawn"
     | "skipped_not_fee_claimer"
-    | "skipped_zero_fee"
+    | "skipped_no_surplus"
     | "failed";
-  partnerMigrationFeeWithdrawSignature?: string;
+  partnerSurplusWithdrawSignature?: string;
   partnerFeeClaimer?: PublicKey;
-  migrationFeeReceiver?: PublicKey;
+  surplusReceiver?: PublicKey;
   partnerQuoteAccount?: PublicKey;
-  partnerMigrationFeeWithdrawError?: string;
+  partnerSurplusWithdrawError?: string;
 };
 
 export function getRpcUrl(rpcUrl?: string): string {

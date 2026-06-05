@@ -65,7 +65,7 @@ export type CreateConfigOptions = {
   feeClaimer?: PublicKey;
   leftoverReceiver?: PublicKey;
   quoteMint?: PublicKey;
-  migrationQuoteAmountCap?: BN | number | string;
+  migrationQuoteAmountCap?: number | string;
   migrationFeePercentage?: number;
   creatorMigrationFeePercentage?: number;
 };
@@ -95,10 +95,10 @@ export type BuyOptions = {
   referralTokenAccount?: PublicKey | null;
 };
 
-export type WithdrawPartnerMigrationFeeOptions = {
+export type WithdrawPartnerSurplusOptions = {
   rpcUrl?: string;
   feeClaimer?: Keypair;
-  migrationFeeReceiver?: PublicKey;
+  surplusReceiver?: PublicKey;
 };
 
 export type WithdrawLeftoverOptions = {
@@ -130,10 +130,10 @@ export type BuyResult = SendResult & {
   outputTokenAccount: PublicKey;
 };
 
-export type WithdrawPartnerMigrationFeeResult = SendResult & {
+export type WithdrawPartnerSurplusResult = SendResult & {
   pool: PublicKey;
   feeClaimer: PublicKey;
-  migrationFeeReceiver: PublicKey;
+  surplusReceiver: PublicKey;
   tokenQuoteAccount: PublicKey;
 };
 
@@ -160,7 +160,7 @@ export function loadKeypair(keypairPath = process.env.KEYPAIR_PATH): Keypair {
 
 export function buildMschfCurveConfig(
   options: {
-    migrationQuoteAmountCap?: BN | number | string;
+    migrationQuoteAmountCap?: number | string;
     migrationFeePercentage?: number;
     creatorMigrationFeePercentage?: number;
   } = {}
@@ -268,7 +268,10 @@ export function buildMschfCurveConfig(
     migrationQuoteAmountCap:
       options.migrationQuoteAmountCap == null
         ? new BN(0)
-        : new BN(options.migrationQuoteAmountCap),
+        : uiAmountToRaw(
+            String(options.migrationQuoteAmountCap),
+            tokenQuoteDecimal
+          ),
     sqrtStartPrice,
     tokenSupply: {
       preMigrationTokenSupply: totalSupply,

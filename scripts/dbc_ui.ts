@@ -14,7 +14,7 @@ import {
   createPool,
   poolInfo,
   withdrawLeftover,
-  withdrawPartnerMigrationFee,
+  withdrawPartnerSurplus,
 } from "./dbc_tool/commands";
 import {
   DEFAULT_RPC_URL,
@@ -248,11 +248,11 @@ async function route(
 
   if (
     method === "POST" &&
-    requestUrl.pathname === "/api/withdraw-partner-migration-fee"
+    requestUrl.pathname === "/api/withdraw-partner-surplus"
   ) {
     const body = await readJsonBody(req);
     const pool = readRequiredString(body.pool, "pool");
-    const result = await withdrawPartnerMigrationFee(pool, {
+    const result = await withdrawPartnerSurplus(pool, {
       rpcUrl: options.rpcUrl,
     });
     sendJson(res, publicKeyResultToBase58(result));
@@ -925,8 +925,8 @@ function renderHtml(options: Options): string {
           <input id="quoteMintInput" autocomplete="off" spellcheck="false">
         </div>
         <div>
-          <label for="migrationQuoteAmountCapInput">Migration quote cap raw</label>
-          <input id="migrationQuoteAmountCapInput" inputmode="numeric" autocomplete="off" placeholder="0">
+          <label for="migrationQuoteAmountCapInput">Migration quote cap</label>
+          <input id="migrationQuoteAmountCapInput" inputmode="decimal" autocomplete="off" placeholder="0">
         </div>
         <div>
           <label for="migrationFeeInput">Migration fee pct</label>
@@ -975,7 +975,7 @@ function renderHtml(options: Options): string {
           <input id="dammConfigInput" autocomplete="off" spellcheck="false" placeholder="Config pubkey">
         </div>
         <button id="migrateButton" type="button">Migrate Curve</button>
-        <button id="withdrawPartnerMigrationFeeButton" class="secondary" type="button">Withdraw Partner Quote Fee</button>
+        <button id="withdrawPartnerSurplusButton" class="secondary" type="button">Withdraw Partner Surplus</button>
         <button id="withdrawLeftoverButton" class="secondary" type="button">Withdraw Leftover Base</button>
       </div>
     </aside>
@@ -1079,7 +1079,7 @@ function renderHtml(options: Options): string {
       buyButton: document.getElementById("buyButton"),
       dammConfigInput: document.getElementById("dammConfigInput"),
       migrateButton: document.getElementById("migrateButton"),
-      withdrawPartnerMigrationFeeButton: document.getElementById("withdrawPartnerMigrationFeeButton"),
+      withdrawPartnerSurplusButton: document.getElementById("withdrawPartnerSurplusButton"),
       withdrawLeftoverButton: document.getElementById("withdrawLeftoverButton"),
       metrics: document.getElementById("metrics"),
       curveSvg: document.getElementById("curveSvg"),
@@ -1134,7 +1134,7 @@ function renderHtml(options: Options): string {
       el.createPoolButton.addEventListener("click", createPoolAction);
       el.buyButton.addEventListener("click", buyAction);
       el.migrateButton.addEventListener("click", migrateAction);
-      el.withdrawPartnerMigrationFeeButton.addEventListener("click", withdrawPartnerMigrationFeeAction);
+      el.withdrawPartnerSurplusButton.addEventListener("click", withdrawPartnerSurplusAction);
       el.withdrawLeftoverButton.addEventListener("click", withdrawLeftoverAction);
 
       syncBuyMode();
@@ -1267,17 +1267,17 @@ function renderHtml(options: Options): string {
       });
     }
 
-    async function withdrawPartnerMigrationFeeAction() {
-      await withButton(el.withdrawPartnerMigrationFeeButton, async () => {
+    async function withdrawPartnerSurplusAction() {
+      await withButton(el.withdrawPartnerSurplusButton, async () => {
         const pool = el.poolInput.value.trim();
         if (!pool) {
           throw new Error("pool is required");
         }
-        if (!confirm("Withdraw the partner migration quote fee now? This sends a transaction using the local keypair and only succeeds if it is the config fee claimer.")) {
+        if (!confirm("Withdraw the partner quote surplus now? This sends a transaction using the local keypair and only succeeds if it is the config fee claimer.")) {
           return;
         }
-        const result = await postJson("/api/withdraw-partner-migration-fee", { pool });
-        log("withdraw partner quote fee", result);
+        const result = await postJson("/api/withdraw-partner-surplus", { pool });
+        log("withdraw partner surplus", result);
         await refreshNow();
       });
     }
@@ -1421,7 +1421,7 @@ function renderHtml(options: Options): string {
         ["Protocol migration quote", formatTokenAmount(info.fees.protocolMigrationQuoteFeeUi, "quote")],
       ]);
       renderKv(el.feeEstimateDetails, [
-        ["Basis amount", formatTokenAmount(info.fees.migrationFeeBasisUi, "quote")],
+        ["Migration quote cap", formatTokenAmount(info.fees.migrationQuoteCapUi, "quote")],
         ["Partner-only surplus", formatTokenAmount(info.fees.partnerOnlyQuoteSurplusUi, "quote")],
         ["Migration fee pct", pct(info.fees.migrationFeePercentage)],
         ["Creator split", pct(info.fees.creatorMigrationFeePercentage)],
@@ -1448,12 +1448,14 @@ function renderHtml(options: Options): string {
         ["Base vault balance", formatBalance(balances.dbcBaseVault, "base")],
         ["Quote vault", info.addresses.quoteVault],
         ["Quote vault balance", formatBalance(balances.dbcQuoteVault, "quote")],
-        ["DAMM v2 config", el.dammConfigInput.value.trim()],
+        ["DAMM v2 config", info.addresses.dammConfig || el.dammConfigInput.value.trim()],
         ["DAMM pool", info.addresses.dammPool || (migrationResult && migrationResult.dammPool)],
         ["DAMM base vault", info.addresses.dammBaseVault],
         ["DAMM base balance", formatBalance(balances.dammBaseVault, "base")],
         ["DAMM quote vault", info.addresses.dammQuoteVault],
         ["DAMM quote balance", formatBalance(balances.dammQuoteVault, "quote")],
+        ["Current pool price", formatNumber(info.price.currentQuotePerBase)],
+        ["Migration pool price", formatNumber(info.price.migrationQuotePerBase)],
         ["First position", migrationResult && migrationResult.firstPosition],
         ["Second position", migrationResult && migrationResult.secondPosition],
       ]);

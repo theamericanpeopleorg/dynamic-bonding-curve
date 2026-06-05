@@ -10,7 +10,7 @@ import { runKeeper } from "./keeper";
 
 export function usage() {
   console.log(`Usage:
-  bun scripts/migration_keeper/migration_keeper.ts <POOL_PUBKEY> --damm-config <DAMM_V2_CONFIG> [--rpc-url <URL>] [--dbc-program-id <PROGRAM_ID>] [--keypair <PATH>] [--withdraw-leftover] [--migration-fee-receiver <OWNER>]
+  bun scripts/migration_keeper/migration_keeper.ts <POOL_PUBKEY> --damm-config <DAMM_V2_CONFIG> [--rpc-url <URL>] [--dbc-program-id <PROGRAM_ID>] [--keypair <PATH>] [--withdraw-leftover] [--surplus-receiver <OWNER>]
 
 Environment:
   RPC_URL            Optional default RPC URL
@@ -44,7 +44,7 @@ export type ParsedCliArgs = {
   keypairPath?: string;
   rpcUrl?: string;
   withdrawLeftover?: boolean;
-  migrationFeeReceiver?: string;
+  surplusReceiver?: string;
 };
 
 export function parseCliArgs(argv: string[]): ParsedCliArgs {
@@ -54,7 +54,7 @@ export function parseCliArgs(argv: string[]): ParsedCliArgs {
   let keypairPath: string | undefined;
   let rpcUrl: string | undefined;
   let withdrawLeftover = false;
-  let migrationFeeReceiver: string | undefined;
+  let surplusReceiver: string | undefined;
 
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
@@ -104,16 +104,16 @@ export function parseCliArgs(argv: string[]): ParsedCliArgs {
       continue;
     }
 
-    if (arg === "--migration-fee-receiver") {
-      migrationFeeReceiver = readValue(
+    if (arg === "--surplus-receiver") {
+      surplusReceiver = readValue(
         argv,
         ++i,
-        "--migration-fee-receiver requires an owner public key"
+        "--surplus-receiver requires an owner public key"
       );
       continue;
     }
-    if (arg.startsWith("--migration-fee-receiver=")) {
-      migrationFeeReceiver = arg.slice("--migration-fee-receiver=".length);
+    if (arg.startsWith("--surplus-receiver=")) {
+      surplusReceiver = arg.slice("--surplus-receiver=".length);
       continue;
     }
 
@@ -132,7 +132,7 @@ export function parseCliArgs(argv: string[]): ParsedCliArgs {
     keypairPath,
     rpcUrl,
     withdrawLeftover,
-    migrationFeeReceiver,
+    surplusReceiver,
   };
 }
 
@@ -153,8 +153,8 @@ function buildKeeperOptions(args: ParsedCliArgs): KeeperOptions {
     keypairPath: args.keypairPath,
     rpcUrl: args.rpcUrl,
     withdrawLeftover: args.withdrawLeftover,
-    migrationFeeReceiver: args.migrationFeeReceiver
-      ? parsePublicKey(args.migrationFeeReceiver, "migration fee receiver")
+    surplusReceiver: args.surplusReceiver
+      ? parsePublicKey(args.surplusReceiver, "surplus receiver")
       : undefined,
   };
 }

@@ -12,18 +12,18 @@ import {
   createPool,
   poolInfo,
   withdrawLeftover,
-  withdrawPartnerMigrationFee,
+  withdrawPartnerSurplus,
 } from "./commands";
 
 export function usage() {
   console.log(`Usage:
-  bun scripts/dbc_tool/dbc_tool.ts create-config [--rpc-url <URL>] [--quote-mint <MINT>] [--migration-quote-amount-cap <RAW_QUOTE_AMOUNT>] [--migration-fee-pct <0-100>] [--creator-migration-fee-pct <0-100>]
+  bun scripts/dbc_tool/dbc_tool.ts create-config [--rpc-url <URL>] [--quote-mint <MINT>] [--migration-quote-amount-cap <QUOTE_AMOUNT>] [--migration-fee-pct <0-100>] [--creator-migration-fee-pct <0-100>]
   bun scripts/dbc_tool/dbc_tool.ts create-pool <CONFIG_PUBKEY> [--rpc-url <URL>] [--base-mint-keypair <PATH>] [--deadline-timestamp <UNIX_SECONDS>]
-  bun scripts/dbc_tool/dbc_tool.ts pool-info <POOL_PUBKEY> [--rpc-url <URL>]
+  bun scripts/dbc_tool/dbc_tool.ts pool-info <POOL_PUBKEY> [--rpc-url <URL>] [--damm-config <DAMM_V2_CONFIG>]
   bun scripts/dbc_tool/dbc_tool.ts buy <POOL_PUBKEY> <BASE_AMOUNT> [--rpc-url <URL>] [--raw]
   bun scripts/dbc_tool/dbc_tool.ts buy <POOL_PUBKEY> <QUOTE_AMOUNT> --partial [--min-base-out <BASE_AMOUNT>] [--rpc-url <URL>] [--raw]
   bun scripts/dbc_tool/dbc_tool.ts withdraw-leftover <POOL_PUBKEY> [--rpc-url <URL>]
-  bun scripts/dbc_tool/dbc_tool.ts withdraw-partner-migration-fee <POOL_PUBKEY> [--rpc-url <URL>] [--migration-fee-receiver <OWNER>]
+  bun scripts/dbc_tool/dbc_tool.ts withdraw-partner-surplus <POOL_PUBKEY> [--rpc-url <URL>] [--surplus-receiver <OWNER>]
 
 Environment:
   RPC_URL            Optional default RPC URL
@@ -33,6 +33,9 @@ Defaults:
   Program ID: ${DBC_PROGRAM_ID.toBase58()}
   RPC URL:    ${DEFAULT_RPC_URL}
   Quote mint: ${MAINNET_USDC_MINT.toBase58()} (mainnet USDC)
+
+Amounts:
+  --migration-quote-amount-cap is a UI quote-token amount, e.g. 0.5 for 0.5 USDC
 `);
 }
 
@@ -80,7 +83,10 @@ export async function runCli() {
       throw new Error("pool-info requires a pool public key argument");
     }
 
-    const result = await poolInfo(pool, { rpcUrl: args.rpcUrl });
+    const result = await poolInfo(pool, {
+      rpcUrl: args.rpcUrl,
+      dammConfig: args.dammConfig,
+    });
     console.log(JSON.stringify(result, null, 2));
     return;
   }
@@ -106,18 +112,18 @@ export async function runCli() {
     return;
   }
 
-  if (command === "withdraw-partner-migration-fee") {
+  if (command === "withdraw-partner-surplus") {
     const pool = args.positionals[0];
     if (!pool) {
       throw new Error(
-        "withdraw-partner-migration-fee requires a pool public key argument"
+        "withdraw-partner-surplus requires a pool public key argument"
       );
     }
 
-    const result = await withdrawPartnerMigrationFee(pool, {
+    const result = await withdrawPartnerSurplus(pool, {
       rpcUrl: args.rpcUrl,
-      migrationFeeReceiver: args.migrationFeeReceiver
-        ? new PublicKey(args.migrationFeeReceiver)
+      surplusReceiver: args.surplusReceiver
+        ? new PublicKey(args.surplusReceiver)
         : undefined,
     });
     console.log(JSON.stringify(publicKeyResultToBase58(result), null, 2));
@@ -145,9 +151,10 @@ export function parseCliArgs(argv: string[]) {
   let command: string | undefined;
   let rpcUrl: string | undefined;
   let quoteMint: string | undefined;
+  let dammConfig: string | undefined;
   let migrationQuoteAmountCap: string | undefined;
   let migrationFeePercentage: number | undefined;
-  let migrationFeeReceiver: string | undefined;
+  let surplusReceiver: string | undefined;
   let creatorMigrationFeePercentage: number | undefined;
   let baseMintKeypairPath: string | undefined;
   let deadlineTimestamp: string | undefined;
@@ -184,12 +191,23 @@ export function parseCliArgs(argv: string[]) {
       continue;
     }
 
+    if (arg === "--damm-config") {
+      dammConfig = argv[++i];
+      if (!dammConfig) {
+        throw new Error("--damm-config requires a DAMM v2 config public key");
+      }
+      continue;
+    }
+
+    if (arg.startsWith("--damm-config=")) {
+      dammConfig = arg.slice("--damm-config=".length);
+      continue;
+    }
+
     if (arg === "--migration-quote-amount-cap") {
       migrationQuoteAmountCap = argv[++i];
       if (!migrationQuoteAmountCap) {
-        throw new Error(
-          "--migration-quote-amount-cap requires a raw quote amount"
-        );
+        throw new Error("--migration-quote-amount-cap requires a quote amount");
       }
       continue;
     }
@@ -233,18 +251,16 @@ export function parseCliArgs(argv: string[]) {
       continue;
     }
 
-    if (arg === "--migration-fee-receiver") {
-      migrationFeeReceiver = argv[++i];
-      if (!migrationFeeReceiver) {
-        throw new Error(
-          "--migration-fee-receiver requires an owner public key"
-        );
+    if (arg === "--surplus-receiver") {
+      surplusReceiver = argv[++i];
+      if (!surplusReceiver) {
+        throw new Error("--surplus-receiver requires an owner public key");
       }
       continue;
     }
 
-    if (arg.startsWith("--migration-fee-receiver=")) {
-      migrationFeeReceiver = arg.slice("--migration-fee-receiver=".length);
+    if (arg.startsWith("--surplus-receiver=")) {
+      surplusReceiver = arg.slice("--surplus-receiver=".length);
       continue;
     }
 
@@ -309,9 +325,9 @@ export function parseCliArgs(argv: string[]) {
     baseMintKeypairPath,
     command,
     creatorMigrationFeePercentage,
+    dammConfig,
     deadlineTimestamp,
     migrationQuoteAmountCap,
-    migrationFeeReceiver,
     migrationFeePercentage,
     minimumBaseAmountOut,
     partialFill,
@@ -319,6 +335,7 @@ export function parseCliArgs(argv: string[]) {
     quoteMint,
     rawAmounts,
     rpcUrl,
+    surplusReceiver,
   };
 }
 

@@ -14,14 +14,14 @@ import {
   simulateAndSend,
   toNumber,
   unwrapVirtualPoolAccount,
-  type WithdrawPartnerMigrationFeeOptions,
-  type WithdrawPartnerMigrationFeeResult,
+  type WithdrawPartnerSurplusOptions,
+  type WithdrawPartnerSurplusResult,
 } from "../shared";
 
-export async function withdrawPartnerMigrationFee(
+export async function withdrawPartnerSurplus(
   pool: PublicKey | string,
-  options: WithdrawPartnerMigrationFeeOptions = {}
-): Promise<WithdrawPartnerMigrationFeeResult> {
+  options: WithdrawPartnerSurplusOptions = {}
+): Promise<WithdrawPartnerSurplusResult> {
   const { connection, program, programId } = await buildClient(options.rpcUrl);
   const feeClaimer = options.feeClaimer ?? loadKeypair();
   const poolPublicKey = typeof pool === "string" ? new PublicKey(pool) : pool;
@@ -36,11 +36,10 @@ export async function withdrawPartnerMigrationFee(
   const tokenQuoteProgram = getTokenProgramForFlag(
     toNumber(config.quoteTokenFlag ?? 0)
   );
-  const migrationFeeReceiver =
-    options.migrationFeeReceiver ?? new PublicKey(config.leftoverReceiver);
+  const surplusReceiver = options.surplusReceiver ?? feeClaimer.publicKey;
   const tokenQuoteAccount = getAssociatedTokenAddressSync(
     quoteMint,
-    migrationFeeReceiver,
+    surplusReceiver,
     true,
     tokenQuoteProgram
   );
@@ -48,14 +47,14 @@ export async function withdrawPartnerMigrationFee(
     createAssociatedTokenAccountIdempotentInstruction(
       feeClaimer.publicKey,
       tokenQuoteAccount,
-      migrationFeeReceiver,
+      surplusReceiver,
       quoteMint,
       tokenQuoteProgram
     ),
   ];
   const postInstructions =
     quoteMint.equals(NATIVE_MINT) &&
-    migrationFeeReceiver.equals(feeClaimer.publicKey)
+    surplusReceiver.equals(feeClaimer.publicKey)
       ? [
           createCloseAccountInstruction(
             tokenQuoteAccount,
@@ -68,7 +67,7 @@ export async function withdrawPartnerMigrationFee(
       : [];
 
   const transaction = await program.methods
-    .withdrawMigrationFee(0)
+    .partnerWithdrawSurplus()
     .accountsPartial({
       poolAuthority: deriveDbcPoolAuthority(programId),
       config: configPublicKey,
@@ -76,7 +75,7 @@ export async function withdrawPartnerMigrationFee(
       tokenQuoteAccount,
       quoteVault: new PublicKey(poolState.quoteVault),
       quoteMint,
-      sender: feeClaimer.publicKey,
+      feeClaimer: feeClaimer.publicKey,
       tokenQuoteProgram,
     })
     .preInstructions(preInstructions)
@@ -90,7 +89,7 @@ export async function withdrawPartnerMigrationFee(
   return {
     pool: poolPublicKey,
     feeClaimer: feeClaimer.publicKey,
-    migrationFeeReceiver,
+    surplusReceiver,
     tokenQuoteAccount,
     signature,
   };

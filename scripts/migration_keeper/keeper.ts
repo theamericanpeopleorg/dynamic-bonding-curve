@@ -48,7 +48,6 @@ import {
 
 const MIGRATION_TRANSPORT_ATTEMPTS = 3;
 const MIGRATION_TRANSPORT_RETRY_DELAY_MS = 2_000;
-const PARTNER_MIGRATION_FEE_MASK = 0b100;
 
 export async function runKeeper(options: KeeperOptions): Promise<KeeperResult> {
   const { connection, program, programId, rpcUrl } = buildClient(
@@ -153,7 +152,7 @@ export async function runKeeper(options: KeeperOptions): Promise<KeeperResult> {
           slot,
           onRetry,
           withdrawLeftover: options.withdrawLeftover === true,
-          migrationFeeReceiver: options.migrationFeeReceiver,
+          surplusReceiver: options.surplusReceiver,
           result: {
             action: "already_migrated",
             pool,
@@ -200,7 +199,7 @@ export async function runKeeper(options: KeeperOptions): Promise<KeeperResult> {
         slot,
         onRetry,
         withdrawLeftover: options.withdrawLeftover === true,
-        migrationFeeReceiver: options.migrationFeeReceiver,
+        surplusReceiver: options.surplusReceiver,
         result,
       });
     } catch (error) {
@@ -576,27 +575,25 @@ async function withLeftoverWithdrawal(params: {
   slot: number;
   onRetry: RpcRetryLogger;
   withdrawLeftover: boolean;
-  migrationFeeReceiver?: PublicKey;
+  surplusReceiver?: PublicKey;
   result: KeeperResult | null;
 }): Promise<KeeperResult | null> {
   if (!params.result) {
     return null;
   }
 
-  const partnerMigrationFeeWithdrawal = await maybeWithdrawPartnerMigrationFee(
-    params
-  );
+  const partnerSurplusWithdrawal = await maybeWithdrawPartnerSurplus(params);
   const leftoverWithdrawal = params.withdrawLeftover
     ? await maybeWithdrawLeftover(params)
     : {};
   return {
     ...params.result,
-    ...partnerMigrationFeeWithdrawal,
+    ...partnerSurplusWithdrawal,
     ...leftoverWithdrawal,
   };
 }
 
-async function maybeWithdrawPartnerMigrationFee(params: {
+async function maybeWithdrawPartnerSurplus(params: {
   program: any;
   programId: PublicKey;
   connection: any;
@@ -604,22 +601,22 @@ async function maybeWithdrawPartnerMigrationFee(params: {
   pool: PublicKey;
   slot: number;
   onRetry: RpcRetryLogger;
-  migrationFeeReceiver?: PublicKey;
+  surplusReceiver?: PublicKey;
 }): Promise<
   Pick<
     KeeperResult,
-    | "partnerMigrationFeeWithdrawStatus"
-    | "partnerMigrationFeeWithdrawSignature"
+    | "partnerSurplusWithdrawStatus"
+    | "partnerSurplusWithdrawSignature"
     | "partnerFeeClaimer"
-    | "migrationFeeReceiver"
+    | "surplusReceiver"
     | "partnerQuoteAccount"
-    | "partnerMigrationFeeWithdrawError"
+    | "partnerSurplusWithdrawError"
   >
 > {
   const poolState = await fetchPoolState({
     program: params.program,
     pool: params.pool,
-    operation: "fetchVirtualPoolBeforeWithdrawPartnerMigrationFee",
+    operation: "fetchVirtualPoolBeforeWithdrawPartnerSurplus",
     onRetry: params.onRetry,
   });
   if (!poolState) {
@@ -628,7 +625,7 @@ async function maybeWithdrawPartnerMigrationFee(params: {
 
   const configPublicKey = new PublicKey(poolState.config);
   const config = (await retryRpc({
-    operation: "fetchPoolConfigBeforeWithdrawPartnerMigrationFee",
+    operation: "fetchPoolConfigBeforeWithdrawPartnerSurplus",
     fn: () => (params.program.account as any).poolConfig.fetch(configPublicKey),
     onRetry: params.onRetry,
   })) as any;
@@ -636,7 +633,7 @@ async function maybeWithdrawPartnerMigrationFee(params: {
 
   if (!params.payer.publicKey.equals(feeClaimer)) {
     logEvent({
-      event: "withdraw_partner_migration_fee_skipped",
+      event: "withdraw_partner_surplus_skipped",
       slot: params.slot,
       pool: params.pool.toBase58(),
       reason: "keeper_not_fee_claimer",
@@ -644,39 +641,51 @@ async function maybeWithdrawPartnerMigrationFee(params: {
       feeClaimer: feeClaimer.toBase58(),
     });
     return {
-      partnerMigrationFeeWithdrawStatus: "skipped_not_fee_claimer",
+      partnerSurplusWithdrawStatus: "skipped_not_fee_claimer",
       partnerFeeClaimer: feeClaimer,
     };
   }
 
-  if (Number(config.migrationFeePercentage ?? 0) === 0) {
+  const quoteReserve = toBigInt(poolState.quoteReserve);
+  const rawMigrationQuoteAmountCap = toBigInt(
+    config.migrationQuoteAmountCap ?? 0
+  );
+  const migrationQuoteAmountCap =
+    rawMigrationQuoteAmountCap === BigInt(0)
+      ? toBigInt(config.migrationQuoteThreshold)
+      : rawMigrationQuoteAmountCap;
+
+  if (quoteReserve <= migrationQuoteAmountCap) {
     logEvent({
-      event: "withdraw_partner_migration_fee_skipped",
+      event: "withdraw_partner_surplus_skipped",
       slot: params.slot,
       pool: params.pool.toBase58(),
-      reason: "zero_migration_fee",
+      reason: "no_surplus",
       feeClaimer: feeClaimer.toBase58(),
+      quoteReserveRaw: quoteReserve.toString(),
+      migrationQuoteAmountCapRaw: migrationQuoteAmountCap.toString(),
     });
     return {
-      partnerMigrationFeeWithdrawStatus: "skipped_zero_fee",
+      partnerSurplusWithdrawStatus: "skipped_no_surplus",
       partnerFeeClaimer: feeClaimer,
     };
   }
 
-  if (
-    (Number(poolState.migrationFeeWithdrawStatus ?? 0) &
-      PARTNER_MIGRATION_FEE_MASK) !==
-    0
-  ) {
+  const isPartnerWithdrawSurplus = Number(
+    poolState.isPartnerWithdrawSurplus ??
+      poolState.is_partner_withdraw_surplus ??
+      0
+  );
+  if (isPartnerWithdrawSurplus !== 0) {
     logEvent({
-      event: "withdraw_partner_migration_fee_skipped",
+      event: "withdraw_partner_surplus_skipped",
       slot: params.slot,
       pool: params.pool.toBase58(),
       reason: "already_withdrawn",
       feeClaimer: feeClaimer.toBase58(),
     });
     return {
-      partnerMigrationFeeWithdrawStatus: "already_withdrawn",
+      partnerSurplusWithdrawStatus: "already_withdrawn",
       partnerFeeClaimer: feeClaimer,
     };
   }
@@ -685,18 +694,17 @@ async function maybeWithdrawPartnerMigrationFee(params: {
   const tokenQuoteProgram = getTokenProgramForFlag(
     Number(config.quoteTokenFlag ?? 0)
   );
-  const migrationFeeReceiver =
-    params.migrationFeeReceiver ?? new PublicKey(config.leftoverReceiver);
+  const surplusReceiver = params.surplusReceiver ?? feeClaimer;
   const tokenQuoteAccount = getAssociatedTokenAddressSync(
     quoteMint,
-    migrationFeeReceiver,
+    surplusReceiver,
     true,
     tokenQuoteProgram
   );
 
   try {
     const transactionBuilder = params.program.methods
-      .withdrawMigrationFee(0)
+      .partnerWithdrawSurplus()
       .accountsPartial({
         poolAuthority: deriveDbcPoolAuthority(params.programId),
         config: configPublicKey,
@@ -704,23 +712,20 @@ async function maybeWithdrawPartnerMigrationFee(params: {
         tokenQuoteAccount,
         quoteVault: new PublicKey(poolState.quoteVault),
         quoteMint,
-        sender: feeClaimer,
+        feeClaimer,
         tokenQuoteProgram,
       })
       .preInstructions([
         createAssociatedTokenAccountIdempotentInstruction(
           params.payer.publicKey,
           tokenQuoteAccount,
-          migrationFeeReceiver,
+          surplusReceiver,
           quoteMint,
           tokenQuoteProgram
         ),
       ]);
 
-    if (
-      quoteMint.equals(NATIVE_MINT) &&
-      migrationFeeReceiver.equals(feeClaimer)
-    ) {
+    if (quoteMint.equals(NATIVE_MINT) && surplusReceiver.equals(feeClaimer)) {
       transactionBuilder.postInstructions([
         createCloseAccountInstruction(
           tokenQuoteAccount,
@@ -741,39 +746,39 @@ async function maybeWithdrawPartnerMigrationFee(params: {
     );
 
     logEvent({
-      event: "withdraw_partner_migration_fee_done",
+      event: "withdraw_partner_surplus_done",
       slot: params.slot,
       pool: params.pool.toBase58(),
       feeClaimer: feeClaimer.toBase58(),
-      migrationFeeReceiver: migrationFeeReceiver.toBase58(),
+      surplusReceiver: surplusReceiver.toBase58(),
       tokenQuoteAccount: tokenQuoteAccount.toBase58(),
       signature,
     });
 
     return {
-      partnerMigrationFeeWithdrawStatus: "withdrawn",
-      partnerMigrationFeeWithdrawSignature: signature,
+      partnerSurplusWithdrawStatus: "withdrawn",
+      partnerSurplusWithdrawSignature: signature,
       partnerFeeClaimer: feeClaimer,
-      migrationFeeReceiver,
+      surplusReceiver,
       partnerQuoteAccount: tokenQuoteAccount,
     };
   } catch (error) {
     const message = errorMessage(error);
     logEvent({
-      event: "withdraw_partner_migration_fee_failed",
+      event: "withdraw_partner_surplus_failed",
       slot: params.slot,
       pool: params.pool.toBase58(),
       feeClaimer: feeClaimer.toBase58(),
-      migrationFeeReceiver: migrationFeeReceiver.toBase58(),
+      surplusReceiver: surplusReceiver.toBase58(),
       tokenQuoteAccount: tokenQuoteAccount.toBase58(),
       message,
     });
     return {
-      partnerMigrationFeeWithdrawStatus: "failed",
+      partnerSurplusWithdrawStatus: "failed",
       partnerFeeClaimer: feeClaimer,
-      migrationFeeReceiver,
+      surplusReceiver,
       partnerQuoteAccount: tokenQuoteAccount,
-      partnerMigrationFeeWithdrawError: message,
+      partnerSurplusWithdrawError: message,
     };
   }
 }

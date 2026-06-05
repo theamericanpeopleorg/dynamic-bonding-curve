@@ -1,7 +1,10 @@
 import {
+  DAMM_V2_MIGRATION_FEE_ADDRESS,
   deriveDammV2PoolAddress,
   deriveDammV2TokenVaultAddress,
   getPriceFromSqrtPrice,
+  MigrationFeeOption,
+  MigrationOption,
   TokenDecimal,
 } from "@meteora-ag/dynamic-bonding-curve-sdk";
 import { getAssociatedTokenAddressSync } from "@solana/spl-token";
@@ -44,12 +47,7 @@ export async function poolInfo(
   const quoteVault = new PublicKey(poolState.quoteVault);
   const leftoverReceiver = new PublicKey(config.leftoverReceiver);
   const feeClaimer = new PublicKey(config.feeClaimer);
-  const dammConfig =
-    options.dammConfig == null
-      ? null
-      : typeof options.dammConfig === "string"
-      ? new PublicKey(options.dammConfig)
-      : options.dammConfig;
+  const dammConfig = resolveDammV2Config(config, options.dammConfig);
   const baseDecimals = toNumber(config.tokenDecimal);
   const quoteDecimals = await getQuoteDecimals(connection, quoteMint);
   const tokenBaseProgram = getTokenProgramForFlag(toNumber(config.tokenType));
@@ -103,17 +101,17 @@ export async function poolInfo(
   const creatorMigrationFeePercentage = toNumber(
     config.creatorMigrationFeePercentage
   );
-  const migrationFeeBasis = bnMin(quoteReserve, migrationQuoteAmountCap);
+  const migrationQuoteCap = bnMin(quoteReserve, migrationQuoteAmountCap);
   const partnerOnlyQuoteSurplus = fixedMigrationQuoteAmountEnabled
     ? quoteReserve.gt(migrationQuoteAmountCap)
       ? quoteReserve.sub(migrationQuoteAmountCap)
       : toBN(0)
     : toBN(0);
   const estimatedMigrationQuoteAmount = divCeil(
-    migrationFeeBasis.muln(100 - migrationFeePercentage),
+    migrationQuoteCap.muln(100 - migrationFeePercentage),
     new BN(100)
   );
-  const estimatedMigrationFeeTotal = migrationFeeBasis.sub(
+  const estimatedMigrationFeeTotal = migrationQuoteCap.sub(
     estimatedMigrationQuoteAmount
   );
   const estimatedCreatorMigrationFee = estimatedMigrationFeeTotal
@@ -127,6 +125,16 @@ export async function poolInfo(
   );
   const currentPrice = getPriceFromSqrtPrice(
     toBN(poolState.sqrtPrice),
+    baseDecimals as TokenDecimal,
+    quoteDecimals as TokenDecimal
+  );
+  const startPrice = getPriceFromSqrtPrice(
+    toBN(config.sqrtStartPrice),
+    baseDecimals as TokenDecimal,
+    quoteDecimals as TokenDecimal
+  );
+  const migrationPrice = getPriceFromSqrtPrice(
+    toBN(config.migrationSqrtPrice),
     baseDecimals as TokenDecimal,
     quoteDecimals as TokenDecimal
   );
@@ -171,8 +179,11 @@ export async function poolInfo(
     },
     price: {
       currentQuotePerBase: currentPrice.toString(),
+      startQuotePerBase: startPrice.toString(),
+      migrationQuotePerBase: migrationPrice.toString(),
       sqrtPrice: toBN(poolState.sqrtPrice).toString(),
       sqrtStartPrice: toBN(config.sqrtStartPrice).toString(),
+      migrationSqrtPrice: toBN(config.migrationSqrtPrice).toString(),
     },
     sale: {
       initialBaseSupplyRaw: initialBaseSupply.toString(),
@@ -279,8 +290,8 @@ export async function poolInfo(
       migrationFeePercentage,
       creatorMigrationFeePercentage,
       partnerMigrationFeePercentage: 100 - creatorMigrationFeePercentage,
-      migrationFeeBasisRaw: migrationFeeBasis.toString(),
-      migrationFeeBasisUi: rawAmountToUi(migrationFeeBasis, quoteDecimals),
+      migrationQuoteCapRaw: migrationQuoteCap.toString(),
+      migrationQuoteCapUi: rawAmountToUi(migrationQuoteCap, quoteDecimals),
       partnerOnlyQuoteSurplusRaw: partnerOnlyQuoteSurplus.toString(),
       partnerOnlyQuoteSurplusUi: rawAmountToUi(
         partnerOnlyQuoteSurplus,
@@ -330,6 +341,32 @@ function hasLockedVesting(config: any): boolean {
     lockedVesting.numberOfPeriod,
     lockedVesting.cliffUnlockAmount,
   ].some((value) => !toBN(value ?? 0).isZero());
+}
+
+function resolveDammV2Config(
+  config: any,
+  dammConfigOverride?: PublicKey | string
+): PublicKey | null {
+  if (dammConfigOverride != null) {
+    return typeof dammConfigOverride === "string"
+      ? new PublicKey(dammConfigOverride)
+      : dammConfigOverride;
+  }
+
+  if (toNumber(config.migrationOption) !== MigrationOption.MET_DAMM_V2) {
+    return null;
+  }
+
+  const migrationFeeOption = toNumber(config.migrationFeeOption);
+  if (
+    migrationFeeOption === MigrationFeeOption.Customizable ||
+    migrationFeeOption < 0 ||
+    migrationFeeOption >= DAMM_V2_MIGRATION_FEE_ADDRESS.length
+  ) {
+    return null;
+  }
+
+  return DAMM_V2_MIGRATION_FEE_ADDRESS[migrationFeeOption];
 }
 
 async function readDestinationBalances(params: {

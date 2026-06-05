@@ -38,7 +38,7 @@ Partner can specify these parameters when they create a configuration on all the
 - `creator_lp_percentage`: the percentage of LP that creator can claim after token is migrated.
 - `creator_locked_lp_percentage`: the percentage of LP that creator will be locked after token is migrated.
 - `migration_quote_threshold`: the threhold for quote token, that after virtual pool reserve get such quote token amount, the token will graduate from the launch pool and will be migrated.
-- `migration_quote_amount_cap`: optional fixed quote token amount to seed migrated liquidity. If zero, migration uses the legacy `migration_quote_threshold` basis. If non-zero, migrated liquidity uses `min(real_quote_reserve, migration_quote_amount_cap)` and quote above the cap is partner-only surplus.
+- `migration_quote_amount_cap`: optional fixed quote token amount to seed migrated liquidity. If zero, migration uses the legacy `migration_quote_threshold`. If non-zero, migrated liquidity uses `min(real_quote_reserve, migration_quote_amount_cap)` and quote above the cap is partner-only surplus.
 - `fee_claimer`: the address of partner that can claim trading fees from the virtual pools as well as fees from the locked LPs.
 - `owner`: owner of the configuration.
 - `quote_mint`: the quote mint address that virtual pool will support.
