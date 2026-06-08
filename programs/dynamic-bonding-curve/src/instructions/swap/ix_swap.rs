@@ -103,6 +103,8 @@ pub fn handle_swap_wrapper<'info>(
         amount_in: result.swap_result_2.included_fee_input_amount,
         current_timestamp: result.current_timestamp,
         is_virtual: result.is_virtual,
+        payer: ctx.accounts.payer.key(),
+        recipient: ctx.accounts.output_token_account.owner,
     });
     emit_cpi!(EvtSwap2 {
         pool: ctx.accounts.pool.key(),
@@ -115,6 +117,8 @@ pub fn handle_swap_wrapper<'info>(
         migration_threshold: result.migration_threshold,
         current_timestamp: result.current_timestamp,
         is_virtual: result.is_virtual,
+        payer: ctx.accounts.payer.key(),
+        recipient: ctx.accounts.output_token_account.owner,
     });
 
     if let Some(data) = result.curve_complete {

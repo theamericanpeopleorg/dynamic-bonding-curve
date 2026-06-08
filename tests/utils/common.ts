@@ -138,7 +138,7 @@ export function sendTransactionMaybeThrow(
   transaction: Transaction,
   signers: Signer[],
   logs = false
-) {
+): TransactionMetadata {
   transaction.recentBlockhash = svm.latestBlockhash();
   transaction.sign(...signers);
   const transactionMeta = svm.sendTransaction(transaction);
@@ -151,6 +151,8 @@ export function sendTransactionMaybeThrow(
   if (logs) {
     console.log((transactionMeta as TransactionMetadata).logs());
   }
+
+  return transactionMeta as TransactionMetadata;
 }
 
 export async function expectThrowsAsync(

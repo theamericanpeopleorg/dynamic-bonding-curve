@@ -38,7 +38,7 @@ import {
 } from "@solana/spl-token";
 import { BN } from "bn.js";
 import { expect } from "chai";
-import { LiteSVM } from "litesvm";
+import { LiteSVM, TransactionMetadata } from "litesvm";
 import { createToken, mintSplTokenTo } from "./utils/token";
 
 describe("Swap V2", () => {
@@ -71,6 +71,29 @@ describe("Swap V2", () => {
       1
     );
   });
+
+  function getEventData(transactionMeta: TransactionMetadata, name: string) {
+    for (const log of transactionMeta.logs()) {
+      const prefix = "Program data: ";
+      if (!log.startsWith(prefix)) {
+        continue;
+      }
+
+      const event = (program.coder as any).events.decode(
+        log.slice(prefix.length)
+      );
+      if (event && event.name.toLowerCase() === name.toLowerCase()) {
+        return event.data;
+      }
+    }
+
+    throw new Error(`Event ${name} not found`);
+  }
+
+  function expectPubkeyEq(actual: PublicKey, expected: PublicKey) {
+    expect(new PublicKey(actual).equals(expected)).to.be.true;
+  }
+
   it("Swap over the curve exact in collect fee mode both tokens", async () => {
     let totalTokenSupply = 1_000_000_000; // 1 billion
     let percentageSupplyOnMigration = 10; // 10%;
@@ -151,13 +174,16 @@ describe("Swap V2", () => {
       referralTokenAccount: null,
       swapMode: SwapMode.ExactIn,
     };
-    await swap2(svm, program, swapParams);
+    const { transactionMeta } = await swap2(svm, program, swapParams);
     const postVaultBalance =
       getTokenAccount(svm, virtualPoolState.quoteVault).amount ?? 0;
+    const swapEvent = getEventData(transactionMeta, "evtSwap2");
 
     expect(Number(postVaultBalance) - Number(preVaultBalance)).eq(
       swapAmount.toNumber()
     );
+    expectPubkeyEq(swapEvent.payer, user.publicKey);
+    expectPubkeyEq(swapEvent.recipient, user.publicKey);
     virtualPoolState = getVirtualPool(svm, program, virtualPool);
 
     expect(virtualPoolState.quoteReserve.toNumber()).eq(
@@ -675,7 +701,7 @@ describe("Swap V2", () => {
     const preSqrtPrice = virtualPoolState.sqrtPrice;
     const amountIn = instructionParams.migrationQuoteThreshold.divn(10);
 
-    await virtualSwap2(svm, program, {
+    const { transactionMeta } = await virtualSwap2(svm, program, {
       config,
       payer: user,
       virtualSwapAuthority: operator,
@@ -688,7 +714,13 @@ describe("Swap V2", () => {
     virtualPoolState = getVirtualPool(svm, program, virtualPool);
     const postQuoteVaultBalance =
       getTokenAccount(svm, virtualPoolState.quoteVault).amount ?? 0;
+    const swapEvent = getEventData(transactionMeta, "evtSwap2");
     expect(postQuoteVaultBalance).eq(preQuoteVaultBalance);
+    expectPubkeyEq(swapEvent.payer, operator.publicKey);
+    expectPubkeyEq(swapEvent.recipient, user.publicKey);
+    expect(
+      new PublicKey(swapEvent.payer).equals(new PublicKey(swapEvent.recipient))
+    ).to.be.false;
     expect(virtualPoolState.quoteReserve.toString()).eq("0");
     expect(virtualPoolState.virtualQuoteReserve.gt(new BN(0))).to.be.true;
     expect(virtualPoolState.baseReserve.lt(preBaseReserve)).to.be.true;

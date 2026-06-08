@@ -14,7 +14,7 @@ import {
   TransactionInstruction,
 } from "@solana/web3.js";
 import { expect } from "chai";
-import { LiteSVM } from "litesvm";
+import { LiteSVM, TransactionMetadata } from "litesvm";
 import {
   deriveVirtualPoolMetadata,
   getOrCreateAssociatedTokenAccount,
@@ -692,6 +692,7 @@ export async function virtualSwap2(
   message: any;
   numInstructions: number;
   completed: boolean;
+  transactionMeta: TransactionMetadata;
 }> {
   const {
     config,
@@ -771,7 +772,10 @@ export async function virtualSwap2(
 
   const simu = svm.simulateTransaction(transaction);
   const consumedCUSwap = Number(simu.meta().computeUnitsConsumed);
-  sendTransactionMaybeThrow(svm, transaction, [payer, virtualSwapAuthority]);
+  const transactionMeta = sendTransactionMaybeThrow(svm, transaction, [
+    payer,
+    virtualSwapAuthority,
+  ]);
 
   poolState = getVirtualPool(svm, program, pool);
   const configs = getConfig(svm, program, config);
@@ -781,6 +785,7 @@ export async function virtualSwap2(
     message: simu.meta().logs()[0],
     numInstructions: transaction.instructions.length,
     completed: getTotalQuoteReserve(poolState).gte(configs.migrationQuoteThreshold),
+    transactionMeta,
   };
 }
 
@@ -961,6 +966,7 @@ export async function swap2(
   message: any;
   numInstructions: number;
   completed: boolean;
+  transactionMeta: TransactionMetadata;
 }> {
   const {
     config,
@@ -1068,7 +1074,7 @@ export async function swap2(
 
   let simu = svm.simulateTransaction(transaction);
   const consumedCUSwap = Number(simu.meta().computeUnitsConsumed);
-  sendTransactionMaybeThrow(svm, transaction, [payer]);
+  const transactionMeta = sendTransactionMaybeThrow(svm, transaction, [payer]);
 
   poolState = getVirtualPool(svm, program, pool);
   const configs = getConfig(svm, program, config);
@@ -1078,6 +1084,7 @@ export async function swap2(
     message: simu.meta().logs()[0],
     numInstructions: transaction.instructions.length,
     completed: getTotalQuoteReserve(poolState).gte(configs.migrationQuoteThreshold),
+    transactionMeta,
   };
 }
 

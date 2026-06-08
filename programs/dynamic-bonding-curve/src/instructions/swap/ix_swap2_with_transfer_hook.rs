@@ -106,6 +106,8 @@ pub fn handle_swap_with_transfer_hook_wrapper<'info>(
         quote_reserve_amount: result.quote_reserve_amount,
         migration_threshold: result.migration_threshold,
         current_timestamp: result.current_timestamp,
+        payer: ctx.accounts.payer.key(),
+        recipient: ctx.accounts.output_token_account.owner,
     });
 
     if let Some(data) = result.curve_complete {

@@ -116,6 +116,8 @@ pub struct EvtSwap {
     pub amount_in: u64,
     pub current_timestamp: u64,
     pub is_virtual: bool,
+    pub payer: Pubkey,
+    pub recipient: Pubkey,
 }
 
 #[event]
@@ -130,6 +132,8 @@ pub struct EvtSwap2 {
     pub migration_threshold: u64,
     pub current_timestamp: u64,
     pub is_virtual: bool,
+    pub payer: Pubkey,
+    pub recipient: Pubkey,
 }
 
 #[event]
@@ -143,6 +147,8 @@ pub struct EvtSwap2WithTransferHook {
     pub quote_reserve_amount: u64,
     pub migration_threshold: u64,
     pub current_timestamp: u64,
+    pub payer: Pubkey,
+    pub recipient: Pubkey,
 }
 
 #[event]
