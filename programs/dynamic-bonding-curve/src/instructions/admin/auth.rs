@@ -12,8 +12,8 @@ pub mod admin {
 pub mod treasury {
     use anchor_lang::prelude::*;
 
-    // https://app.squads.so/squads/6aYhxiNGmG8AyU25rh2R7iFu4pBrqnQHpNUGhmsEXRcm/treasury
-    pub const ID: Pubkey = pubkey!("6aYhxiNGmG8AyU25rh2R7iFu4pBrqnQHpNUGhmsEXRcm");
+    // https://app.squads.so/squads/Ff4kZLzK89T3tjMknyNHAyTU1sUzMtnbvbzuuaNvXFcZ/treasury
+    pub const ID: Pubkey = pubkey!("Ff4kZLzK89T3tjMknyNHAyTU1sUzMtnbvbzuuaNvXFcZ");
 }
 
 pub mod virtual_swap_authority {
