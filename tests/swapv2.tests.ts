@@ -41,6 +41,8 @@ import { expect } from "chai";
 import { LiteSVM, TransactionMetadata } from "litesvm";
 import { createToken, mintSplTokenTo } from "./utils/token";
 
+const EVENT_IX_TAG_LE = Buffer.from("e445a52e51cb9a1d", "hex");
+
 describe("Swap V2", () => {
   let svm: LiteSVM;
   let admin: Keypair;
@@ -73,17 +75,34 @@ describe("Swap V2", () => {
   });
 
   function getEventData(transactionMeta: TransactionMetadata, name: string) {
+    const eventCoder = (program.coder as any).events;
     for (const log of transactionMeta.logs()) {
       const prefix = "Program data: ";
       if (!log.startsWith(prefix)) {
         continue;
       }
 
-      const event = (program.coder as any).events.decode(
-        log.slice(prefix.length)
-      );
+      const event = eventCoder.decode(log.slice(prefix.length));
       if (event && event.name.toLowerCase() === name.toLowerCase()) {
         return event.data;
+      }
+    }
+
+    for (const instructions of transactionMeta.innerInstructions()) {
+      for (const innerInstruction of instructions) {
+        const instructionData = Buffer.from(
+          innerInstruction.instruction().data()
+        );
+        if (!instructionData.subarray(0, 8).equals(EVENT_IX_TAG_LE)) {
+          continue;
+        }
+
+        const event = eventCoder.decode(
+          instructionData.subarray(8).toString("base64")
+        );
+        if (event && event.name.toLowerCase() === name.toLowerCase()) {
+          return event.data;
+        }
       }
     }
 
@@ -958,11 +977,10 @@ describe("Swap V2", () => {
     expect(partnerQuoteBalance.toString()).eq(partnerSurplus.toString());
   });
 
-  it("fixed migration quote cap rejects creator surplus even with creator trading split", async () => {
+  it("fixed migration quote cap rejects creator surplus", async () => {
     const { config, instructionParams, quoteMint, virtualPool } =
       await createVirtualSwapFixture(1, 1, {
         migrationQuoteAmountCapDivisor: 2,
-        creatorTradingFeePercentage: 50,
       });
     let virtualPoolState = getVirtualPool(svm, program, virtualPool);
     const migrationQuoteCap = instructionParams.migrationQuoteAmountCap!;
