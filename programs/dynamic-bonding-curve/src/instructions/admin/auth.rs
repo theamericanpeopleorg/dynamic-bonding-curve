@@ -3,10 +3,7 @@ use anchor_lang::prelude::*;
 pub mod admin {
     use anchor_lang::prelude::*;
 
-    pub const ADMINS: [Pubkey; 2] = [
-        pubkey!("5unTfT2kssBuNvHPY6LbJfJpLqEcdMxGYLWHwShaeTLi"),
-        pubkey!("DHLXnJdACTY83yKwnUkeoDjqi4QBbsYGa1v8tJL76ViX"),
-    ];
+    pub const ID: Pubkey = pubkey!("MSCHFwaCxfX3kJMSRpSPo8RrFj3sZZ28c9VvUQXjyFM");
 }
 
 pub mod treasury {
@@ -29,9 +26,7 @@ pub fn assert_eq_admin(_admin: Pubkey) -> bool {
 
 #[cfg(not(feature = "local"))]
 pub fn assert_eq_admin(admin: Pubkey) -> bool {
-    crate::admin::admin::ADMINS
-        .iter()
-        .any(|predefined_admin| predefined_admin.eq(&admin))
+    crate::admin::admin::ID.eq(&admin)
 }
 
 #[cfg(feature = "local")]

@@ -1,19 +1,16 @@
-[features]
-seeds = false
-skip-lint = false
-
-[programs.localnet]
-dynamic_bonding_curve = "dbcij3LWUppWqq96dh6gJWwBifmcGfLSB5D4DuSMaqN"
-
-[registry]
-url = "https://api.apr.dev"
-
-[provider]
-cluster = "Localnet"
-wallet = "keys/local/admin-bossj3JvwiNK7pvjr149DqdtJxf2gdygbcmEPTkb2F1.json"
-
-[hooks]
-
 [toolchain]
 anchor_version = "1.0.2"
 solana_version = "3.1.10"
+
+[features]
+resolution = true
+skip-lint = false
+
+[programs.localnet]
+dynamic_bonding_curve = "DBCMoopTYxovF6tWuNXzQjSG9oJs5Ap4UV3HMWU7mFh7"
+
+[provider]
+cluster = "localnet"
+wallet = "keys/local/admin-bossj3JvwiNK7pvjr149DqdtJxf2gdygbcmEPTkb2F1.json"
+
+[hooks]
