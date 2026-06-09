@@ -19,8 +19,7 @@ pub mod treasury {
 pub mod virtual_swap_authority {
     use anchor_lang::{prelude::Pubkey, pubkey};
 
-    // TODO: Replace with the production Privy backend signer before non-local deployment.
-    pub const ID: Pubkey = pubkey!("11111111111111111111111111111111");
+    pub const ID: Pubkey = pubkey!("FysG1gdSokjsc8N7rtWJYhwTNYm4fGeCiWnFjYjdbuYx");
 }
 
 #[cfg(feature = "local")]
