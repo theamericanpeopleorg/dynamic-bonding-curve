@@ -8,7 +8,6 @@ import DynamicBondingCurveIdl from "../../target/idl/dynamic_bonding_curve.json"
 import {
   ActivationType,
   BaseFeeMode,
-  buildCurve,
   CollectFeeMode,
   DammV2BaseFeeMode,
   DammV2DynamicFeeMode,
@@ -57,6 +56,7 @@ export const DEFAULT_TOTAL_TOKEN_SUPPLY = 1_000_000_000;
 export const DEFAULT_CURVE_START_PRICE = "0.18";
 export const DEFAULT_CURVE_MIGRATION_PRICE = "0.30";
 export const DEFAULT_BASE_TOKENS_SOLD_BEFORE_MIGRATION = "180000000";
+export const DEFAULT_ACTIVATION_TYPE = ActivationType.Timestamp;
 export const DBC_PROGRAM_ID = new PublicKey(
   (DynamicBondingCurveIdl as any).address
 );
@@ -217,82 +217,104 @@ export function buildMschfCurveConfig(
     );
   }
 
+  const migrationQuoteAmountCap =
+    options.migrationQuoteAmountCap == null
+      ? new BN(0)
+      : uiAmountToRaw(
+          String(options.migrationQuoteAmountCap),
+          tokenQuoteDecimal
+        );
+  const fixedMigrationQuoteAmountEnabled = !migrationQuoteAmountCap.isZero();
+  if (
+    fixedMigrationQuoteAmountEnabled &&
+    ((options.migrationFeePercentage ?? 0) !== 0 ||
+      (options.creatorMigrationFeePercentage ?? 0) !== 0)
+  ) {
+    throw new Error(
+      "migrationFeePercentage and creatorMigrationFeePercentage must be 0 when migrationQuoteAmountCap is set"
+    );
+  }
+
+  const migrationFeePercentage = fixedMigrationQuoteAmountEnabled
+    ? 0
+    : options.migrationFeePercentage ?? 0;
+  const creatorMigrationFeePercentage = fixedMigrationQuoteAmountEnabled
+    ? 0
+    : options.creatorMigrationFeePercentage ?? 0;
   const migratedPoolFeeBps =
     options.migratedPoolFeeBps ?? DEFAULT_MIGRATED_POOL_FEE_BPS;
-  const config = buildCurve({
-    token: {
-      tokenType: TokenType.SPL,
-      tokenBaseDecimal,
-      tokenQuoteDecimal,
-      tokenUpdateAuthority: TokenUpdateAuthorityOption.Immutable,
-      totalTokenSupply: DEFAULT_TOTAL_TOKEN_SUPPLY,
-      leftover: 0,
-    },
-    fee: {
-      baseFeeParams: {
-        baseFeeMode: BaseFeeMode.FeeSchedulerLinear,
-        feeSchedulerParam: {
-          startingFeeBps: 0,
-          endingFeeBps: 0,
-          numberOfPeriod: 0,
-          totalDuration: 0,
-        },
-      },
-      dynamicFeeEnabled: false,
-      collectFeeMode: CollectFeeMode.QuoteToken,
-      creatorTradingFeePercentage: 0,
-      poolCreationFee: 0,
-      enableFirstSwapWithMinFee: false,
-    },
-    migration: {
-      migrationOption: MigrationOption.MET_DAMM_V2,
-      migrationFeeOption: MigrationFeeOption.Customizable,
-      migrationFee: {
-        feePercentage: options.migrationFeePercentage ?? 0,
-        creatorFeePercentage: options.creatorMigrationFeePercentage ?? 0,
-      },
-      migratedPoolFee: {
-        collectFeeMode: MigratedCollectFeeMode.QuoteToken,
-        dynamicFee: DammV2DynamicFeeMode.Disabled,
-        poolFeeBps: migratedPoolFeeBps,
-        baseFeeMode: DammV2BaseFeeMode.FeeTimeSchedulerLinear,
-      },
-    },
-    liquidityDistribution: {
-      partnerLiquidityPercentage: 0,
-      partnerPermanentLockedLiquidityPercentage: 100,
-      creatorLiquidityPercentage: 0,
-      creatorPermanentLockedLiquidityPercentage: 0,
-    },
-    lockedVesting: {
-      totalLockedVestingAmount: 0,
-      numberOfVestingPeriod: 0,
-      cliffUnlockAmount: 0,
-      totalVestingDuration: 0,
-      cliffDurationFromMigrationTime: 0,
-    },
-    activationType: ActivationType.Timestamp,
-    percentageSupplyOnMigration: 10,
-    migrationQuoteThreshold: Number(
-      rawAmountToUi(migrationQuoteThreshold, tokenQuoteDecimal)
-    ),
-  });
 
   return {
-    ...config,
+    poolFees: {
+      baseFee: {
+        cliffFeeNumerator: new BN(0),
+        firstFactor: 0,
+        secondFactor: new BN(0),
+        thirdFactor: new BN(0),
+        baseFeeMode: BaseFeeMode.FeeSchedulerLinear,
+      },
+      dynamicFee: null,
+    },
+    collectFeeMode: CollectFeeMode.QuoteToken,
+    migrationOption: MigrationOption.MET_DAMM_V2,
+    activationType: DEFAULT_ACTIVATION_TYPE,
+    tokenType: TokenType.SPL,
+    tokenDecimal: tokenBaseDecimal,
+    partnerLiquidityPercentage: 0,
+    partnerPermanentLockedLiquidityPercentage: 100,
+    creatorLiquidityPercentage: 0,
+    creatorPermanentLockedLiquidityPercentage: 0,
     migrationQuoteThreshold,
-    migrationQuoteAmountCap:
-      options.migrationQuoteAmountCap == null
-        ? new BN(0)
-        : uiAmountToRaw(
-            String(options.migrationQuoteAmountCap),
-            tokenQuoteDecimal
-          ),
+    migrationQuoteAmountCap,
     sqrtStartPrice,
+    lockedVesting: {
+      amountPerPeriod: new BN(0),
+      cliffDurationFromMigrationTime: new BN(0),
+      frequency: new BN(0),
+      numberOfPeriod: new BN(0),
+      cliffUnlockAmount: new BN(0),
+    },
+    migrationFeeOption: MigrationFeeOption.Customizable,
     tokenSupply: {
       preMigrationTokenSupply: totalSupply,
       postMigrationTokenSupply: totalSupply,
     },
+    creatorTradingFeePercentage: 0,
+    tokenUpdateAuthority: TokenUpdateAuthorityOption.Immutable,
+    migrationFee: {
+      feePercentage: migrationFeePercentage,
+      creatorFeePercentage: creatorMigrationFeePercentage,
+    },
+    migratedPoolFee: {
+      collectFeeMode: MigratedCollectFeeMode.QuoteToken,
+      dynamicFee: DammV2DynamicFeeMode.Disabled,
+      poolFeeBps: migratedPoolFeeBps,
+    },
+    poolCreationFee: new BN(0),
+    partnerLiquidityVestingInfo: {
+      vestingPercentage: 0,
+      bpsPerPeriod: 0,
+      numberOfPeriods: 0,
+      cliffDurationFromMigrationTime: 0,
+      frequency: 0,
+    },
+    creatorLiquidityVestingInfo: {
+      vestingPercentage: 0,
+      bpsPerPeriod: 0,
+      numberOfPeriods: 0,
+      cliffDurationFromMigrationTime: 0,
+      frequency: 0,
+    },
+    migratedPoolBaseFeeMode: DammV2BaseFeeMode.FeeTimeSchedulerLinear,
+    migratedPoolMarketCapFeeSchedulerParams: {
+      numberOfPeriod: 0,
+      sqrtPriceStepBps: 0,
+      schedulerExpirationDuration: 0,
+      reductionFactor: new BN(0),
+    },
+    enableFirstSwapWithMinFee: false,
+    compoundingFeeBps: 0,
+    padding: [],
     curve,
   } as ConfigParameters & { migrationQuoteAmountCap: BN };
 }
