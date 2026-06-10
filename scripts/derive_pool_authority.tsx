@@ -1,6 +1,6 @@
 import { PublicKey } from "@solana/web3.js";
 
-const DEFAULT_DBC_PROGRAM_ID = "BGYDrwDnJVuYkHewahreyiddfMXErUDzp3RvVEDPmYBz";
+const DEFAULT_DBC_PROGRAM_ID = "DBCMoopTYxovF6tWuNXzQjSG9oJs5Ap4UV3HMWU7mFh7";
 
 function usage(): void {
   console.error(

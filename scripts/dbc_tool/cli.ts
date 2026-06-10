@@ -1,7 +1,9 @@
 import { PublicKey } from "@solana/web3.js";
 import {
   DBC_PROGRAM_ID,
+  DAMM_V2_CONFIG,
   DEFAULT_KEYPAIR_PATH,
+  DEFAULT_MIGRATED_POOL_FEE_BPS,
   DEFAULT_RPC_URL,
   MAINNET_USDC_MINT,
   loadKeypair,
@@ -17,9 +19,9 @@ import {
 
 export function usage() {
   console.log(`Usage:
-  bun scripts/dbc_tool/dbc_tool.ts create-config [--rpc-url <URL>] [--quote-mint <MINT>] [--migration-quote-amount-cap <QUOTE_AMOUNT>] [--migration-fee-pct <0-100>] [--creator-migration-fee-pct <0-100>]
+  bun scripts/dbc_tool/dbc_tool.ts create-config [--rpc-url <URL>] [--quote-mint <MINT>] [--migration-quote-amount-cap <QUOTE_AMOUNT>] [--migration-fee-pct <0-100>] [--creator-migration-fee-pct <0-100>] [--migrated-pool-fee-bps <0-1000>]
   bun scripts/dbc_tool/dbc_tool.ts create-pool <CONFIG_PUBKEY> [--rpc-url <URL>] [--base-mint-keypair <PATH>] [--deadline-timestamp <UNIX_SECONDS>]
-  bun scripts/dbc_tool/dbc_tool.ts pool-info <POOL_PUBKEY> [--rpc-url <URL>] [--damm-config <DAMM_V2_CONFIG>]
+  bun scripts/dbc_tool/dbc_tool.ts pool-info <POOL_PUBKEY> [--rpc-url <URL>]
   bun scripts/dbc_tool/dbc_tool.ts buy <POOL_PUBKEY> <BASE_AMOUNT> [--rpc-url <URL>] [--raw]
   bun scripts/dbc_tool/dbc_tool.ts buy <POOL_PUBKEY> <QUOTE_AMOUNT> --partial [--min-base-out <BASE_AMOUNT>] [--rpc-url <URL>] [--raw]
   bun scripts/dbc_tool/dbc_tool.ts withdraw-leftover <POOL_PUBKEY> [--rpc-url <URL>]
@@ -30,9 +32,11 @@ Environment:
   KEYPAIR_PATH       Defaults to ${DEFAULT_KEYPAIR_PATH}
 
 Defaults:
-  Program ID: ${DBC_PROGRAM_ID.toBase58()}
-  RPC URL:    ${DEFAULT_RPC_URL}
-  Quote mint: ${MAINNET_USDC_MINT.toBase58()} (mainnet USDC)
+  Program ID:              ${DBC_PROGRAM_ID.toBase58()}
+  RPC URL:                 ${DEFAULT_RPC_URL}
+  Quote mint:              ${MAINNET_USDC_MINT.toBase58()} (mainnet USDC)
+  DAMM v2 config:          ${DAMM_V2_CONFIG.toBase58()}
+  Migrated pool fee bps:   ${DEFAULT_MIGRATED_POOL_FEE_BPS}
 
 Amounts:
   --migration-quote-amount-cap is a UI quote-token amount, e.g. 0.5 for 0.5 USDC
@@ -55,6 +59,7 @@ export async function runCli() {
       migrationQuoteAmountCap: args.migrationQuoteAmountCap,
       migrationFeePercentage: args.migrationFeePercentage,
       creatorMigrationFeePercentage: args.creatorMigrationFeePercentage,
+      migratedPoolFeeBps: args.migratedPoolFeeBps,
     });
     console.log(JSON.stringify(publicKeyResultToBase58(result), null, 2));
     return;
@@ -85,7 +90,6 @@ export async function runCli() {
 
     const result = await poolInfo(pool, {
       rpcUrl: args.rpcUrl,
-      dammConfig: args.dammConfig,
     });
     console.log(JSON.stringify(result, null, 2));
     return;
@@ -151,9 +155,9 @@ export function parseCliArgs(argv: string[]) {
   let command: string | undefined;
   let rpcUrl: string | undefined;
   let quoteMint: string | undefined;
-  let dammConfig: string | undefined;
   let migrationQuoteAmountCap: string | undefined;
   let migrationFeePercentage: number | undefined;
+  let migratedPoolFeeBps: number | undefined;
   let surplusReceiver: string | undefined;
   let creatorMigrationFeePercentage: number | undefined;
   let baseMintKeypairPath: string | undefined;
@@ -188,19 +192,6 @@ export function parseCliArgs(argv: string[]) {
 
     if (arg.startsWith("--quote-mint=")) {
       quoteMint = arg.slice("--quote-mint=".length);
-      continue;
-    }
-
-    if (arg === "--damm-config") {
-      dammConfig = argv[++i];
-      if (!dammConfig) {
-        throw new Error("--damm-config requires a DAMM v2 config public key");
-      }
-      continue;
-    }
-
-    if (arg.startsWith("--damm-config=")) {
-      dammConfig = arg.slice("--damm-config=".length);
       continue;
     }
 
@@ -247,6 +238,22 @@ export function parseCliArgs(argv: string[]) {
       creatorMigrationFeePercentage = parsePercentage(
         arg.slice("--creator-migration-fee-pct=".length),
         "--creator-migration-fee-pct"
+      );
+      continue;
+    }
+
+    if (arg === "--migrated-pool-fee-bps") {
+      migratedPoolFeeBps = parseBps(
+        argv[++i],
+        "--migrated-pool-fee-bps"
+      );
+      continue;
+    }
+
+    if (arg.startsWith("--migrated-pool-fee-bps=")) {
+      migratedPoolFeeBps = parseBps(
+        arg.slice("--migrated-pool-fee-bps=".length),
+        "--migrated-pool-fee-bps"
       );
       continue;
     }
@@ -313,6 +320,14 @@ export function parseCliArgs(argv: string[]) {
       continue;
     }
 
+    if (arg.startsWith("-")) {
+      if (!command && (arg === "--help" || arg === "-h")) {
+        command = arg;
+        continue;
+      }
+      throw new Error(`Unexpected argument: ${arg}`);
+    }
+
     if (!command) {
       command = arg;
       continue;
@@ -325,10 +340,10 @@ export function parseCliArgs(argv: string[]) {
     baseMintKeypairPath,
     command,
     creatorMigrationFeePercentage,
-    dammConfig,
     deadlineTimestamp,
     migrationQuoteAmountCap,
     migrationFeePercentage,
+    migratedPoolFeeBps,
     minimumBaseAmountOut,
     partialFill,
     positionals,
@@ -337,6 +352,19 @@ export function parseCliArgs(argv: string[]) {
     rpcUrl,
     surplusReceiver,
   };
+}
+
+function parseBps(value: string | undefined, name: string): number {
+  if (value == null || value.trim() === "") {
+    throw new Error(`${name} requires a bps value`);
+  }
+
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 0 || parsed > 1000) {
+    throw new Error(`${name} must be an integer from 0 to 1000`);
+  }
+
+  return parsed;
 }
 
 function parsePercentage(value: string | undefined, name: string): number {

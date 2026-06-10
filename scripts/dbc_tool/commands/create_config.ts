@@ -25,6 +25,7 @@ export async function createConfig(
         migrationQuoteAmountCap: options.migrationQuoteAmountCap,
         migrationFeePercentage: options.migrationFeePercentage,
         creatorMigrationFeePercentage: options.creatorMigrationFeePercentage,
+        migratedPoolFeeBps: options.migratedPoolFeeBps,
       })
     )
     .accountsPartial({

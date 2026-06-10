@@ -1,0 +1,36 @@
+################################################################
+# Prepare Surfnet-only local state for DBC migration tests
+################################################################
+
+variable "dbc_pool_authority" {
+    description = "Local DBC fork pool_authority PDA"
+    value = "GmJQraEgZ7rseK5kyNNKPJF7289NxZhknwsYyc6VUcio"
+}
+
+action "fund_dbc_pool_authority_flash_rent" "std::send_http_request" {
+    description = "Surfpool-only setup: fund DBC pool_authority with 1 SOL for migration flash rent"
+    url = input.rpc_api_url
+    method = "POST"
+    headers = {
+        "Content-Type" = "application/json"
+    }
+    body = {
+        "jsonrpc" = "2.0",
+        "id" = 1,
+        "method" = "surfnet_setAccount",
+        "params" = [
+            variable.dbc_pool_authority,
+            {
+                "data" = "",
+                "executable" = false,
+                "lamports" = 1000000000,
+                "owner" = "11111111111111111111111111111111"
+            }
+        ]
+    }
+}
+
+output "fund_dbc_pool_authority_response" {
+    description = "Raw surfnet_setAccount response for pool_authority flash-rent funding"
+    value = action.fund_dbc_pool_authority_flash_rent.response_body
+}

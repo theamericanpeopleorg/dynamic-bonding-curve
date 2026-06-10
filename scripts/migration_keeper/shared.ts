@@ -38,6 +38,9 @@ export const DEFAULT_KEYPAIR_PATH = path.join(
 export const DBC_PROGRAM_ID = new PublicKey(
   (DynamicBondingCurveIdl as any).address
 );
+export const DAMM_V2_CONFIG = new PublicKey(
+  "4Z1M85nC1vmZzEsYx6seTo5EM2tfAg7b67J4nJKWtWuu"
+);
 
 export enum MigrationProgress {
   PreBondingCurve = 0,

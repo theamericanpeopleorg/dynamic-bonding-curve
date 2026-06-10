@@ -17,6 +17,7 @@ import {
   withdrawPartnerSurplus,
 } from "./dbc_tool/commands";
 import {
+  DAMM_V2_CONFIG,
   DEFAULT_RPC_URL,
   MAINNET_USDC_MINT,
   buildClient,
@@ -161,14 +162,10 @@ async function route(
 
   if (method === "GET" && requestUrl.pathname === "/api/pool-info") {
     const pool = readQueryValue(requestUrl, "pool");
-    const dammConfig = readOptionalPublicKey(
-      readQueryValue(requestUrl, "dammConfig"),
-      "dammConfig"
-    );
     if (!pool) {
       throw new HttpError(400, "pool is required");
     }
-    const result = await readPoolDashboard(pool, options.rpcUrl, dammConfig);
+    const result = await readPoolDashboard(pool, options.rpcUrl);
     sendJson(res, result);
     return;
   }
@@ -187,12 +184,17 @@ async function route(
       body.creatorMigrationFeePercentage,
       "creatorMigrationFeePercentage"
     );
+    const migratedPoolFeeBps = readOptionalBps(
+      body.migratedPoolFeeBps,
+      "migratedPoolFeeBps"
+    );
     const result = await createConfig({
       rpcUrl: options.rpcUrl,
       quoteMint: quoteMint ?? MAINNET_USDC_MINT,
       migrationQuoteAmountCap,
       migrationFeePercentage,
       creatorMigrationFeePercentage,
+      migratedPoolFeeBps,
     });
     sendJson(res, publicKeyResultToBase58(result));
     return;
@@ -234,11 +236,10 @@ async function route(
   if (method === "POST" && requestUrl.pathname === "/api/migrate") {
     const body = await readJsonBody(req);
     const pool = readRequiredPublicKey(body.pool, "pool");
-    const dammConfig = readRequiredPublicKey(body.dammConfig, "dammConfig");
     await assertPoolCanMigrate(pool, options.rpcUrl);
     const result = await runKeeper({
       pool,
-      dammConfig,
+      dammConfig: DAMM_V2_CONFIG,
       rpcUrl: options.rpcUrl,
       statusIntervalMs: 1_000,
     });
@@ -296,10 +297,9 @@ async function handleHealth(res: ServerResponse, options: Options) {
 
 async function readPoolDashboard(
   pool: string,
-  rpcUrl: string,
-  dammConfig?: PublicKey
+  rpcUrl: string
 ) {
-  const info = await poolInfo(pool, { rpcUrl, dammConfig });
+  const info = await poolInfo(pool, { rpcUrl });
   const curve = await readCurveState(pool, rpcUrl);
   return { info, curve };
 }
@@ -428,6 +428,20 @@ function readOptionalPercentage(
   return parsed;
 }
 
+function readOptionalBps(value: unknown, name: string): number | undefined {
+  const stringValue = readOptionalString(value);
+  if (stringValue == null) {
+    return undefined;
+  }
+
+  const parsed = Number(stringValue);
+  if (!Number.isInteger(parsed) || parsed < 0 || parsed > 1000) {
+    throw new HttpError(400, `${name} must be an integer from 0 to 1000`);
+  }
+
+  return parsed;
+}
+
 async function assertPoolCanMigrate(pool: PublicKey, rpcUrl: string) {
   const dashboard = await readPoolDashboard(pool.toBase58(), rpcUrl);
   const migration = (dashboard.info as any).migration;
@@ -539,6 +553,7 @@ class HttpError extends Error {
 function renderHtml(options: Options): string {
   const rpcUrl = JSON.stringify(options.rpcUrl);
   const defaultQuoteMint = JSON.stringify(MAINNET_USDC_MINT.toBase58());
+  const dammV2Config = JSON.stringify(DAMM_V2_CONFIG.toBase58());
 
   return `<!doctype html>
 <html lang="en">
@@ -970,10 +985,6 @@ function renderHtml(options: Options): string {
 
       <div class="section">
         <h2 class="section-title">Migrate</h2>
-        <div>
-          <label for="dammConfigInput">DAMM v2 config</label>
-          <input id="dammConfigInput" autocomplete="off" spellcheck="false" placeholder="Config pubkey">
-        </div>
         <button id="migrateButton" type="button">Migrate Curve</button>
         <button id="withdrawPartnerSurplusButton" class="secondary" type="button">Withdraw Partner Surplus</button>
         <button id="withdrawLeftoverButton" class="secondary" type="button">Withdraw Leftover Base</button>
@@ -1050,6 +1061,7 @@ function renderHtml(options: Options): string {
   <script>
     const RPC_URL = ${rpcUrl};
     const DEFAULT_QUOTE_MINT = ${defaultQuoteMint};
+    const DAMM_V2_CONFIG = ${dammV2Config};
     const REFRESH_MS = 1000;
     const state = {
       health: null,
@@ -1077,7 +1089,6 @@ function renderHtml(options: Options): string {
       minBaseRow: document.getElementById("minBaseRow"),
       minBaseInput: document.getElementById("minBaseInput"),
       buyButton: document.getElementById("buyButton"),
-      dammConfigInput: document.getElementById("dammConfigInput"),
       migrateButton: document.getElementById("migrateButton"),
       withdrawPartnerSurplusButton: document.getElementById("withdrawPartnerSurplusButton"),
       withdrawLeftoverButton: document.getElementById("withdrawLeftoverButton"),
@@ -1107,8 +1118,6 @@ function renderHtml(options: Options): string {
       el.buyModeInput.value = localStorage.getItem("dbc.ui.buyMode") || "base";
       el.buyAmountInput.value = localStorage.getItem("dbc.ui.buyAmount") || "";
       el.minBaseInput.value = localStorage.getItem("dbc.ui.minBaseOut") || "";
-      el.dammConfigInput.value = localStorage.getItem("dbc.ui.dammConfig") || "";
-
       el.watchButton.addEventListener("click", () => {
         setPool(el.poolInput.value.trim());
         refreshNow();
@@ -1126,10 +1135,6 @@ function renderHtml(options: Options): string {
       });
       el.buyAmountInput.addEventListener("change", () => localStorage.setItem("dbc.ui.buyAmount", el.buyAmountInput.value.trim()));
       el.minBaseInput.addEventListener("change", () => localStorage.setItem("dbc.ui.minBaseOut", el.minBaseInput.value.trim()));
-      el.dammConfigInput.addEventListener("change", () => {
-        localStorage.setItem("dbc.ui.dammConfig", el.dammConfigInput.value.trim());
-        refreshNow();
-      });
       el.createConfigButton.addEventListener("click", createConfigAction);
       el.createPoolButton.addEventListener("click", createPoolAction);
       el.buyButton.addEventListener("click", buyAction);
@@ -1170,11 +1175,9 @@ function renderHtml(options: Options): string {
         renderHealth();
         const pool = el.poolInput.value.trim();
         if (state.health.ok && pool) {
-          const dammConfig = el.dammConfigInput.value.trim();
           const path =
             "/api/pool-info?pool=" +
-            encodeURIComponent(pool) +
-            (dammConfig ? "&dammConfig=" + encodeURIComponent(dammConfig) : "");
+            encodeURIComponent(pool);
           state.dashboard = await getJson(path);
           state.lastError = null;
           renderDashboard();
@@ -1249,19 +1252,14 @@ function renderHtml(options: Options): string {
     async function migrateAction() {
       await withButton(el.migrateButton, async () => {
         const pool = el.poolInput.value.trim();
-        const dammConfig = el.dammConfigInput.value.trim();
         if (!pool) {
           throw new Error("pool is required");
-        }
-        if (!dammConfig) {
-          throw new Error("DAMM v2 config is required");
         }
         if (!confirm("Migrate this curve now? This sends a transaction using the local keypair.")) {
           return;
         }
-        const result = await postJson("/api/migrate", { pool, dammConfig });
+        const result = await postJson("/api/migrate", { pool });
         state.lastMigrationResult = result;
-        localStorage.setItem("dbc.ui.dammConfig", dammConfig);
         log("migrate", result);
         await refreshNow();
       });
@@ -1448,7 +1446,7 @@ function renderHtml(options: Options): string {
         ["Base vault balance", formatBalance(balances.dbcBaseVault, "base")],
         ["Quote vault", info.addresses.quoteVault],
         ["Quote vault balance", formatBalance(balances.dbcQuoteVault, "quote")],
-        ["DAMM v2 config", info.addresses.dammConfig || el.dammConfigInput.value.trim()],
+        ["DAMM v2 config", info.addresses.dammConfig || DAMM_V2_CONFIG],
         ["DAMM pool", info.addresses.dammPool || (migrationResult && migrationResult.dammPool)],
         ["DAMM base vault", info.addresses.dammBaseVault],
         ["DAMM base balance", formatBalance(balances.dammBaseVault, "base")],

@@ -1,5 +1,6 @@
 import {
   DBC_PROGRAM_ID,
+  DAMM_V2_CONFIG,
   DEFAULT_KEYPAIR_PATH,
   DEFAULT_RPC_URL,
   KeeperOptions,
@@ -10,7 +11,7 @@ import { runKeeper } from "./keeper";
 
 export function usage() {
   console.log(`Usage:
-  bun scripts/migration_keeper/migration_keeper.ts <POOL_PUBKEY> --damm-config <DAMM_V2_CONFIG> [--rpc-url <URL>] [--dbc-program-id <PROGRAM_ID>] [--keypair <PATH>] [--withdraw-leftover] [--surplus-receiver <OWNER>]
+  bun scripts/migration_keeper/migration_keeper.ts <POOL_PUBKEY> [--rpc-url <URL>] [--dbc-program-id <PROGRAM_ID>] [--keypair <PATH>] [--withdraw-leftover] [--surplus-receiver <OWNER>]
 
 Environment:
   RPC_URL            Optional default RPC URL
@@ -18,6 +19,7 @@ Environment:
 
 Defaults:
   DBC Program ID: ${DBC_PROGRAM_ID.toBase58()}
+  DAMM v2 config: ${DAMM_V2_CONFIG.toBase58()}
   RPC URL:        ${DEFAULT_RPC_URL}
 `);
 }
@@ -39,7 +41,6 @@ export async function runCli() {
 
 export type ParsedCliArgs = {
   command?: string;
-  dammConfig?: string;
   dbcProgramId?: string;
   keypairPath?: string;
   rpcUrl?: string;
@@ -49,7 +50,6 @@ export type ParsedCliArgs = {
 
 export function parseCliArgs(argv: string[]): ParsedCliArgs {
   let command: string | undefined;
-  let dammConfig: string | undefined;
   let dbcProgramId: string | undefined;
   let keypairPath: string | undefined;
   let rpcUrl: string | undefined;
@@ -78,15 +78,6 @@ export function parseCliArgs(argv: string[]): ParsedCliArgs {
     }
     if (arg.startsWith("--dbc-program-id=")) {
       dbcProgramId = arg.slice("--dbc-program-id=".length);
-      continue;
-    }
-
-    if (arg === "--damm-config") {
-      dammConfig = readValue(argv, ++i, "--damm-config requires a public key");
-      continue;
-    }
-    if (arg.startsWith("--damm-config=")) {
-      dammConfig = arg.slice("--damm-config=".length);
       continue;
     }
 
@@ -127,7 +118,6 @@ export function parseCliArgs(argv: string[]): ParsedCliArgs {
 
   return {
     command,
-    dammConfig,
     dbcProgramId,
     keypairPath,
     rpcUrl,
@@ -140,13 +130,10 @@ function buildKeeperOptions(args: ParsedCliArgs): KeeperOptions {
   if (!args.command) {
     throw new Error("Pool public key argument is required");
   }
-  if (!args.dammConfig) {
-    throw new Error("--damm-config is required");
-  }
 
   return {
     pool: parsePublicKey(args.command, "pool"),
-    dammConfig: parsePublicKey(args.dammConfig, "damm config"),
+    dammConfig: DAMM_V2_CONFIG,
     dbcProgramId: args.dbcProgramId
       ? parsePublicKey(args.dbcProgramId, "DBC program id")
       : getDbcProgramId(),

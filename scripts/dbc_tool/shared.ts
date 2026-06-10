@@ -10,6 +10,8 @@ import {
   BaseFeeMode,
   buildCurve,
   CollectFeeMode,
+  DammV2BaseFeeMode,
+  DammV2DynamicFeeMode,
   getBaseTokenForSwap,
   getDeltaAmountQuoteUnsigned,
   getInitialLiquidityFromDeltaBase,
@@ -17,6 +19,7 @@ import {
   getSwapAmountWithBuffer,
   getTokenDecimals,
   METAPLEX_PROGRAM_ID,
+  MigratedCollectFeeMode,
   MigrationFeeOption,
   MigrationOption,
   Rounding,
@@ -57,6 +60,10 @@ export const DEFAULT_BASE_TOKENS_SOLD_BEFORE_MIGRATION = "180000000";
 export const DBC_PROGRAM_ID = new PublicKey(
   (DynamicBondingCurveIdl as any).address
 );
+export const DAMM_V2_CONFIG = new PublicKey(
+  "4Z1M85nC1vmZzEsYx6seTo5EM2tfAg7b67J4nJKWtWuu"
+);
+export const DEFAULT_MIGRATED_POOL_FEE_BPS = 100;
 
 export type CreateConfigOptions = {
   rpcUrl?: string;
@@ -68,6 +75,7 @@ export type CreateConfigOptions = {
   migrationQuoteAmountCap?: number | string;
   migrationFeePercentage?: number;
   creatorMigrationFeePercentage?: number;
+  migratedPoolFeeBps?: number;
 };
 
 export type CreatePoolOptions = {
@@ -83,7 +91,6 @@ export type CreatePoolOptions = {
 
 export type PoolInfoOptions = {
   rpcUrl?: string;
-  dammConfig?: PublicKey | string;
 };
 
 export type BuyOptions = {
@@ -163,6 +170,7 @@ export function buildMschfCurveConfig(
     migrationQuoteAmountCap?: number | string;
     migrationFeePercentage?: number;
     creatorMigrationFeePercentage?: number;
+    migratedPoolFeeBps?: number;
   } = {}
 ): ConfigParameters {
   const tokenBaseDecimal = TokenDecimal.SIX;
@@ -209,6 +217,8 @@ export function buildMschfCurveConfig(
     );
   }
 
+  const migratedPoolFeeBps =
+    options.migratedPoolFeeBps ?? DEFAULT_MIGRATED_POOL_FEE_BPS;
   const config = buildCurve({
     token: {
       tokenType: TokenType.SPL,
@@ -236,10 +246,16 @@ export function buildMschfCurveConfig(
     },
     migration: {
       migrationOption: MigrationOption.MET_DAMM_V2,
-      migrationFeeOption: MigrationFeeOption.FixedBps100,
+      migrationFeeOption: MigrationFeeOption.Customizable,
       migrationFee: {
         feePercentage: options.migrationFeePercentage ?? 0,
         creatorFeePercentage: options.creatorMigrationFeePercentage ?? 0,
+      },
+      migratedPoolFee: {
+        collectFeeMode: MigratedCollectFeeMode.QuoteToken,
+        dynamicFee: DammV2DynamicFeeMode.Disabled,
+        poolFeeBps: migratedPoolFeeBps,
+        baseFeeMode: DammV2BaseFeeMode.FeeTimeSchedulerLinear,
       },
     },
     liquidityDistribution: {

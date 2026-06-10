@@ -10,6 +10,7 @@ import { Connection, PublicKey } from "@solana/web3.js";
 import { buy, createConfig, createPool } from "./dbc_tool/commands";
 import {
   DBC_PROGRAM_ID,
+  DAMM_V2_CONFIG,
   DEFAULT_RPC_URL,
   deriveDbcPoolAuthority,
   unwrapVirtualPoolAccount,
@@ -22,9 +23,6 @@ import {
 } from "./migration_keeper/shared";
 
 const DEFAULT_MAINNET_RPC_URL = "https://api.mainnet-beta.solana.com";
-const FIXED_BPS100_DAMM_CONFIG = new PublicKey(
-  "Hv8Lmzmnju6m7kcokVKvwqz7QPmdX9XfKjJsXz8RXcjp"
-);
 const DAMM_V2_PROGRAM_ID = new PublicKey(
   "cpamdpZCGKUy5JxQXB4dcpGPiikHawvSWAd6mEn1sGG"
 );
@@ -60,10 +58,13 @@ async function main() {
       runSurfpoolDeployment();
     }
 
-    await assertFixedBps100ConfigPatched(options.rpcUrl);
+    await assertDefaultDammV2ConfigCompatible(options.rpcUrl);
 
     logStep("create_config");
-    const configResult = await createConfig({ rpcUrl: options.rpcUrl });
+    const configResult = await createConfig({
+      rpcUrl: options.rpcUrl,
+      migratedPoolFeeBps: 100,
+    });
     logResult("config_created", publicKeyResultToBase58(configResult));
 
     logStep("create_pool");
@@ -83,7 +84,7 @@ async function main() {
     logStep("migrate");
     const keeperResult = await runKeeper({
       pool: poolResult.pool,
-      dammConfig: FIXED_BPS100_DAMM_CONFIG,
+      dammConfig: DAMM_V2_CONFIG,
       dbcProgramId: DBC_PROGRAM_ID,
       rpcUrl: options.rpcUrl,
     });
@@ -117,7 +118,7 @@ Options:
   --rpc-url <URL>              Surfpool RPC URL. Default: ${DEFAULT_RPC_URL}
   --mainnet-rpc-url <URL>      Upstream RPC for a fresh Surfpool fork. Default: ${DEFAULT_MAINNET_RPC_URL}
   --use-existing-surfpool      Do not start or stop Surfpool; use --rpc-url as-is
-  --skip-deployment            Do not run the localnet deployment/runbook patch
+  --skip-deployment            Do not run the localnet deployment runbook
   --keep-surfpool              Leave the spawned Surfpool process running
   --wait-timeout-ms <MS>       RPC readiness timeout. Default: 60000
   -h, --help                   Show this help
@@ -308,18 +309,18 @@ async function waitForRpc(rpcUrl: string, timeoutMs: number) {
   );
 }
 
-async function assertFixedBps100ConfigPatched(rpcUrl: string) {
-  logStep("verify_fixed_bps100_config");
+async function assertDefaultDammV2ConfigCompatible(rpcUrl: string) {
+  logStep("verify_default_damm_v2_config");
   const connection = new Connection(rpcUrl, "confirmed");
-  const account = await connection.getAccountInfo(FIXED_BPS100_DAMM_CONFIG);
+  const account = await connection.getAccountInfo(DAMM_V2_CONFIG);
   if (!account) {
     throw new Error(
-      `FixedBps100 DAMM config account not found: ${FIXED_BPS100_DAMM_CONFIG.toBase58()}`
+      `DAMM v2 config account not found: ${DAMM_V2_CONFIG.toBase58()}`
     );
   }
   if (!account.owner.equals(DAMM_V2_PROGRAM_ID)) {
     throw new Error(
-      `FixedBps100 DAMM config owner mismatch: expected ${DAMM_V2_PROGRAM_ID.toBase58()}, got ${account.owner.toBase58()}`
+      `DAMM v2 config owner mismatch: expected ${DAMM_V2_PROGRAM_ID.toBase58()}, got ${account.owner.toBase58()}`
     );
   }
 
@@ -333,12 +334,12 @@ async function assertFixedBps100ConfigPatched(rpcUrl: string) {
   );
   if (!actualPoolCreatorAuthority.equals(expectedPoolCreatorAuthority)) {
     throw new Error(
-      `FixedBps100 DAMM config pool_creator_authority mismatch: expected ${expectedPoolCreatorAuthority.toBase58()}, got ${actualPoolCreatorAuthority.toBase58()}`
+      `DAMM v2 config pool_creator_authority mismatch: expected ${expectedPoolCreatorAuthority.toBase58()}, got ${actualPoolCreatorAuthority.toBase58()}`
     );
   }
 
-  logResult("fixed_bps100_config_verified", {
-    dammConfig: FIXED_BPS100_DAMM_CONFIG.toBase58(),
+  logResult("default_damm_v2_config_verified", {
+    dammConfig: DAMM_V2_CONFIG.toBase58(),
     owner: account.owner.toBase58(),
     lamports: account.lamports,
     dataLength: account.data.length,

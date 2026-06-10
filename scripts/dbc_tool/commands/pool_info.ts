@@ -1,9 +1,7 @@
 import {
-  DAMM_V2_MIGRATION_FEE_ADDRESS,
   deriveDammV2PoolAddress,
   deriveDammV2TokenVaultAddress,
   getPriceFromSqrtPrice,
-  MigrationFeeOption,
   MigrationOption,
   TokenDecimal,
 } from "@meteora-ag/dynamic-bonding-curve-sdk";
@@ -12,6 +10,7 @@ import { PublicKey } from "@solana/web3.js";
 import BN from "bn.js";
 import {
   buildClient,
+  DAMM_V2_CONFIG,
   getTokenProgramForFlag,
   getInitialBaseSupply,
   getQuoteDecimals,
@@ -47,7 +46,7 @@ export async function poolInfo(
   const quoteVault = new PublicKey(poolState.quoteVault);
   const leftoverReceiver = new PublicKey(config.leftoverReceiver);
   const feeClaimer = new PublicKey(config.feeClaimer);
-  const dammConfig = resolveDammV2Config(config, options.dammConfig);
+  const dammConfig = resolveDammV2Config(config);
   const baseDecimals = toNumber(config.tokenDecimal);
   const quoteDecimals = await getQuoteDecimals(connection, quoteMint);
   const tokenBaseProgram = getTokenProgramForFlag(toNumber(config.tokenType));
@@ -343,30 +342,12 @@ function hasLockedVesting(config: any): boolean {
   ].some((value) => !toBN(value ?? 0).isZero());
 }
 
-function resolveDammV2Config(
-  config: any,
-  dammConfigOverride?: PublicKey | string
-): PublicKey | null {
-  if (dammConfigOverride != null) {
-    return typeof dammConfigOverride === "string"
-      ? new PublicKey(dammConfigOverride)
-      : dammConfigOverride;
-  }
-
+function resolveDammV2Config(config: any): PublicKey | null {
   if (toNumber(config.migrationOption) !== MigrationOption.MET_DAMM_V2) {
     return null;
   }
 
-  const migrationFeeOption = toNumber(config.migrationFeeOption);
-  if (
-    migrationFeeOption === MigrationFeeOption.Customizable ||
-    migrationFeeOption < 0 ||
-    migrationFeeOption >= DAMM_V2_MIGRATION_FEE_ADDRESS.length
-  ) {
-    return null;
-  }
-
-  return DAMM_V2_MIGRATION_FEE_ADDRESS[migrationFeeOption];
+  return DAMM_V2_CONFIG;
 }
 
 async function readDestinationBalances(params: {
